@@ -1,6 +1,6 @@
 <template>
   <div class="course-materials-container">
-    <el-tabs v-model="data.activeCourseTab" type="card" class="sub-tabs">
+    <el-tabs v-model="data.activeCourseTab" type="card" class="sub-tabs" @tab-click="onTabChange">
       <el-tab-pane label="我的课程" name="my-course">
         <div class="tab-content">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -163,9 +163,10 @@ import { reactive, onMounted, ref, defineProps } from "vue";
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
 import request from "@/utils/request";
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
+const route = useRoute();
 
 // 接收父组件传递的用户信息
 const props = defineProps({
@@ -481,17 +482,42 @@ const downloadFile = (file) => {
 };
 
 const previewFile = (file) => {
-  // 跳转到文件预览页面
+  // 跳转到文件预览页面，传递当前标签页信息
   router.push({
     path: '/front-file-preview',
-    query: { fileId: file.fileId }
+    query: { 
+      fileId: file.fileId,
+      fromTab: data.activeCourseTab
+    }
   });
 };
 
+// 监听标签页变化，当用户切换标签页时加载对应的数据
+const onTabChange = (pane) => {
+  const tabName = pane.paneName;
+  // 更新当前激活的标签页
+  data.activeCourseTab = tabName;
+  if (tabName === 'my-course') {
+    getMyFiles();
+  } else if (tabName === 'course-warehouse') {
+    getSharedFiles();
+  }
+  // 不需要为 file-upload 标签页加载特定数据
+};
+
 onMounted(() => {
-  // 默认加载我的文件
-  getMyFiles();
-  getSharedFiles();
+  // 从路由参数获取标签页，如果存在则切换到对应标签页
+  const { tab } = route.query;
+  if (tab && ['my-course', 'course-warehouse', 'file-upload'].includes(tab)) {
+    data.activeCourseTab = tab;
+  }
+  
+  // 根据当前标签页加载对应的数据
+  if (data.activeCourseTab === 'my-course') {
+    getMyFiles();
+  } else if (data.activeCourseTab === 'course-warehouse') {
+    getSharedFiles();
+  }
 });
 </script>
 

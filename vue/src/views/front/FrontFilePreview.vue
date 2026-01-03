@@ -175,7 +175,18 @@ const downloadFile = () => {
 
 // 关闭预览
 const closePreview = () => {
-  router.go(-1); // 返回上一页
+  const { fromTab } = route.query;
+  
+  if (fromTab === 'course-warehouse') {
+    // 如果是从课程仓库打开的，返回课程仓库页面
+    router.push({
+      path: '/front/course-materials',
+      query: { tab: 'course-warehouse' }
+    });
+  } else {
+    // 否则返回上一页（默认行为）
+    router.go(-1);
+  }
 };
 
 onMounted(() => {
