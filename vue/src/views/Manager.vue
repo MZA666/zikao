@@ -19,12 +19,32 @@
             router
             style="border: none"
             :default-active="router.currentRoute.value.path"
-            :default-openeds="['user']"
+            :default-openeds="data.isManager ? ['user', 'audit'] : ['upload']"
         >
           <el-menu-item index="/manager/home">
             <el-icon><HomeFilled /></el-icon>
             <span>系统首页</span>
           </el-menu-item>
+          <el-sub-menu index="upload" v-if="!data.isManager">
+            <template #title>
+              <el-icon><Upload /></el-icon>
+              <span>资料管理</span>
+            </template>
+            <el-menu-item index="/front/home">
+              <el-icon><Folder /></el-icon>
+              <span>我的上传资料</span>
+            </el-menu-item>
+          </el-sub-menu>
+          <el-sub-menu index="audit" v-if="data.isManager">
+            <template #title>
+              <el-icon><Document /></el-icon>
+              <span>审核管理</span>
+            </template>
+            <el-menu-item index="/manager/file-audit">
+              <el-icon><FolderOpened /></el-icon>
+              <span>课程资料审核</span>
+            </el-menu-item>
+          </el-sub-menu>
           <el-sub-menu index="user">
             <template #title>
               <el-icon><User /></el-icon>
@@ -32,7 +52,7 @@
             </template>
             <el-menu-item index="/manager/admin">
               <el-icon><User /></el-icon>
-              <span>管理员信息</span>
+              <span>用户信息</span>
             </el-menu-item>
           </el-sub-menu>
           <el-menu-item @click="logout">
@@ -50,13 +70,31 @@
 </template>
 
 <script setup>
-import { reactive } from "vue";
+import { reactive, onMounted } from "vue";
 import router from "@/router";
 import {ElMessage} from "element-plus";
+import {HomeFilled, User, SwitchButton, Document, FolderOpened, Upload, Folder} from '@element-plus/icons-vue';
+import request from "@/utils/request";
 
 const data = reactive({
-  user: JSON.parse(localStorage.getItem('system-user') || '{}')
+  user: JSON.parse(localStorage.getItem('system-user') || '{}'),
+  isManager: false
 })
+
+onMounted(() => {
+  checkUserRole();
+})
+
+const checkUserRole = async () => {
+  // 检查用户角色，如果是管理员则显示审核菜单
+  const user = JSON.parse(localStorage.getItem('system-user') || '{}');
+  // 假设角色为 "管理员" 或 "学员"，具体根据您的业务逻辑调整
+  if (user.roleId === '1' || user.roleId === 1 || user.roleId === '管理员') {
+    data.isManager = true;
+  } else {
+    data.isManager = false;
+  }
+}
 
 if (!data.user?.userId) {
   ElMessage.error('请登录！')
@@ -65,12 +103,13 @@ if (!data.user?.userId) {
 
 const updateUser = () => {
   data.user = JSON.parse(localStorage.getItem('system-user') || '{}')
+  checkUserRole();
 }
 
 const logout = () => {
   router.push('/login')
   ElMessage.success('退出成功')
-  localStorage.removeItem('code2026-user')
+  localStorage.removeItem('system-user')
 }
 </script>
 

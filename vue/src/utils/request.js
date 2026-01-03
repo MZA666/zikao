@@ -10,7 +10,13 @@ const request = axios.create({
 // request 拦截器
 // 可以自请求发送前对请求做一些处理
 request.interceptors.request.use(config => {
-    config.headers['Content-Type'] = 'application/json;charset=utf-8';
+    // 对于文件上传请求，不要设置Content-Type为application/json
+    if (config.data instanceof FormData) {
+        // 如果是FormData格式（文件上传），则不设置Content-Type，让浏览器自动设置
+        delete config.headers['Content-Type'];
+    } else {
+        config.headers['Content-Type'] = 'application/json;charset=utf-8';
+    }
     return config
 }, error => {
     return Promise.reject(error)
