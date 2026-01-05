@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.exam.QuestionMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.entity.exam.Question">
+        <id column="id" property="id"/>
+        <result column="subject_id" property="subjectId"/>
+        <result column="type" property="type"/>
+        <result column="content" property="content"/>
+        <result column="answer" property="answer"/>
+        <result column="analysis" property="analysis"/>
+        <result column="chapter" property="chapter"/>
+        <result column="difficulty" property="difficulty"/>
+        <result column="created_time" property="createdTime"/>
+        <result column="updated_time" property="updatedTime"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, subject_id, type, content, answer, analysis, chapter, difficulty, created_time, updated_time
+    </sql>
+
+    <insert id="insert" parameterType="com.example.entity.exam.Question" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO question (subject_id, type, content, answer, analysis, chapter, difficulty, created_time, updated_time)
+        VALUES (#{subjectId}, #{type}, #{content}, #{answer}, #{analysis}, #{chapter}, #{difficulty}, NOW(), NOW())
+    </insert>
+
+    <delete id="deleteById" parameterType="java.lang.Integer">
+        DELETE FROM question WHERE id = #{id}
+    </delete>
+
+    <update id="updateById" parameterType="com.example.entity.exam.Question">
+        UPDATE question
+        SET subject_id = #{subjectId},
+            type = #{type},
+            content = #{content},
+            answer = #{answer},
+            analysis = #{analysis},
+            chapter = #{chapter},
+            difficulty = #{difficulty},
+            updated_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectById" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM question
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" parameterType="com.example.entity.exam.Question" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM question
+        <where>
+            <if test="subjectId != null">
+                AND subject_id = #{subjectId}
+            </if>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="content != null and content != ''">
+                AND content LIKE CONCAT('%', #{content}, '%')
+            </if>
+        </where>
+        ORDER BY created_time DESC
+    </select>
+
+    <select id="selectBySubjectId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM question
+        WHERE subject_id = #{subjectId}
+        ORDER BY created_time DESC
+    </select>
+
+    <select id="selectByType" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM question
+        WHERE type = #{type}
+        ORDER BY created_time DESC
+    </select>
+
+</mapper>

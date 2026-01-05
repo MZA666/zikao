@@ -15,7 +15,24 @@
           <CourseMaterials :user="data.user" />
         </el-tab-pane>
         <el-tab-pane label="考试题库" name="exam-bank">
-          <ExamBank />
+          <!-- 考试题库子选项卡 -->
+          <el-tabs v-model="data.activeExamTab" class="sub-tabs" type="card" @tab-change="handleExamTabChange">
+            <el-tab-pane label="题库" name="bank">
+              <ExamBank />
+            </el-tab-pane>
+            <el-tab-pane label="学习空间" name="study-space">
+              <StudySpace />
+            </el-tab-pane>
+            <el-tab-pane label="模拟考试" name="mock-exam">
+              <MockExam />
+            </el-tab-pane>
+            <el-tab-pane label="考试记录" name="exam-record">
+              <ExamRecord />
+            </el-tab-pane>
+            <el-tab-pane label="题库上传" name="exam-upload">
+              <ExamUpload />
+            </el-tab-pane>
+          </el-tabs>
         </el-tab-pane>
         <el-tab-pane label="学员论坛" name="student-forum">
           <StudentForum />
@@ -30,15 +47,28 @@ import { reactive, onMounted } from "vue";
 import CourseMaterials from './CourseMaterials.vue';
 import ExamBank from './ExamBank.vue';
 import StudentForum from './StudentForum.vue';
+import StudySpace from './StudySpace.vue';
+import MockExam from './MockExam.vue';
+import ExamRecord from './ExamRecord.vue';
+import ExamUpload from './ExamUpload.vue';
 import request from "@/utils/request";
 
 const data = reactive({
   user: JSON.parse(localStorage.getItem('system-user') || '{}'),
   activeMainTab: 'course-materials',
+  activeExamTab: 'bank', // 默认显示题库
 });
 
 const handleMainTabChange = (tabName) => {
-  // 可以根据需要添加选项卡切换逻辑
+  // 如果切换到考试题库选项卡，恢复之前的考试选项卡状态
+  if (tabName === 'exam-bank') {
+    // 保持当前考试选项卡状态
+  }
+};
+
+const handleExamTabChange = (tabName) => {
+  // 保存当前考试选项卡状态
+  data.activeExamTab = tabName;
 };
 
 const logout = () => {
@@ -95,5 +125,9 @@ onMounted(() => {
 
 .main-tabs {
   margin-top: 20px;
+}
+
+.sub-tabs {
+  margin-top: 10px;
 }
 </style>

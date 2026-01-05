@@ -13,6 +13,7 @@ const router = createRouter({
         { path: 'admin', component: () => import('@/views/manager/Admin.vue')},
         { path: 'file-audit', component: () => import('@/views/manager/FileAudit.vue')},
         { path: 'file-preview', component: () => import('@/views/manager/FilePreview.vue'), name: 'FilePreview'},
+        { path: 'exam-management', component: () => import('@/views/manager/ExamManagement.vue')},
       ]
     },
     {
@@ -24,6 +25,10 @@ const router = createRouter({
         { path: 'course-materials', component: () => import('@/views/front/CourseMaterials.vue')},
         { path: 'exam-bank', component: () => import('@/views/front/ExamBank.vue')},
         { path: 'student-forum', component: () => import('@/views/front/StudentForum.vue')},
+        { path: 'study-space', component: () => import('@/views/front/StudySpace.vue')},
+        { path: 'mock-exam', component: () => import('@/views/front/MockExam.vue')},
+        { path: 'exam-record', component: () => import('@/views/front/ExamRecord.vue')},
+        { path: 'exam-upload', component: () => import('@/views/front/ExamUpload.vue')},
       ]
     },
     {

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.exam.ExamPaperMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.entity.exam.ExamPaper">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="subject_id" property="subjectId"/>
+        <result column="total_questions" property="totalQuestions"/>
+        <result column="total_score" property="totalScore"/>
+        <result column="duration" property="duration"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="created_time" property="createdTime"/>
+        <result column="updated_time" property="updatedTime"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, name, subject_id, total_questions, total_score, duration, created_by, created_time, updated_time
+    </sql>
+
+    <insert id="insert" parameterType="com.example.entity.exam.ExamPaper" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO exam_paper (name, subject_id, total_questions, total_score, duration, created_by, created_time, updated_time)
+        VALUES (#{name}, #{subjectId}, #{totalQuestions}, #{totalScore}, #{duration}, #{createdBy}, NOW(), NOW())
+    </insert>
+
+    <delete id="deleteById" parameterType="java.lang.Integer">
+        DELETE FROM exam_paper WHERE id = #{id}
+    </delete>
+
+    <update id="updateById" parameterType="com.example.entity.exam.ExamPaper">
+        UPDATE exam_paper
+        SET name = #{name},
+            subject_id = #{subjectId},
+            total_questions = #{totalQuestions},
+            total_score = #{totalScore},
+            duration = #{duration},
+            updated_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectById" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_paper
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" parameterType="com.example.entity.exam.ExamPaper" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_paper
+        <where>
+            <if test="subjectId != null">
+                AND subject_id = #{subjectId}
+            </if>
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="createdBy != null">
+                AND created_by = #{createdBy}
+            </if>
+        </where>
+        ORDER BY created_time DESC
+    </select>
+
+    <select id="selectBySubjectId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_paper
+        WHERE subject_id = #{subjectId}
+        ORDER BY created_time DESC
+    </select>
+
+    <select id="selectByCreatedBy" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_paper
+        WHERE created_by = #{createdBy}
+        ORDER BY created_time DESC
+    </select>
+
+</mapper>

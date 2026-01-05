@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.exam.ExamRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.entity.exam.ExamRecord">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="username" property="username"/>
+        <result column="paper_id" property="paperId"/>
+        <result column="paper_name" property="paperName"/>
+        <result column="subject_id" property="subjectId"/>
+        <result column="subject_name" property="subjectName"/>
+        <result column="score" property="score"/>
+        <result column="total_score" property="totalScore"/>
+        <result column="accuracy" property="accuracy"/>
+        <result column="duration" property="duration"/>
+        <result column="exam_time" property="examTime"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, username, paper_id, paper_name, subject_id, subject_name, score, total_score, accuracy, duration, exam_time
+    </sql>
+
+    <insert id="insert" parameterType="com.example.entity.exam.ExamRecord" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO exam_record (user_id, username, paper_id, paper_name, subject_id, subject_name, score, total_score, accuracy, duration, exam_time)
+        VALUES (#{userId}, #{username}, #{paperId}, #{paperName}, #{subjectId}, #{subjectName}, #{score}, #{totalScore}, #{accuracy}, #{duration}, NOW())
+    </insert>
+
+    <delete id="deleteById" parameterType="java.lang.Integer">
+        DELETE FROM exam_record WHERE id = #{id}
+    </delete>
+
+    <update id="updateById" parameterType="com.example.entity.exam.ExamRecord">
+        UPDATE exam_record
+        SET user_id = #{userId},
+            username = #{username},
+            paper_id = #{paperId},
+            paper_name = #{paperName},
+            subject_id = #{subjectId},
+            subject_name = #{subjectName},
+            score = #{score},
+            total_score = #{totalScore},
+            accuracy = #{accuracy},
+            duration = #{duration},
+            exam_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectById" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_record
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectAll" parameterType="com.example.entity.exam.ExamRecord" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_record
+        <where>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="subjectId != null">
+                AND subject_id = #{subjectId}
+            </if>
+            <if test="paperId != null">
+                AND paper_id = #{paperId}
+            </if>
+        </where>
+        ORDER BY exam_time DESC
+    </select>
+
+    <select id="selectByUserId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_record
+        WHERE user_id = #{userId}
+        ORDER BY exam_time DESC
+    </select>
+
+    <select id="selectBySubjectId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_record
+        WHERE subject_id = #{subjectId}
+        ORDER BY exam_time DESC
+    </select>
+
+    <select id="selectByDateRange" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_record
+        WHERE exam_time BETWEEN #{startDate} AND #{endDate}
+        ORDER BY exam_time DESC
+    </select>
+
+</mapper>

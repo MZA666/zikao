@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.exam.ExamBankMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.entity.exam.ExamBank">
+        <id column="bank_id" property="bankId"/>
+        <result column="bank_name" property="bankName"/>
+        <result column="subject" property="subject"/>
+        <result column="description" property="description"/>
+        <result column="uploader_id" property="uploaderId"/>
+        <result column="uploader" property="uploader"/>
+        <result column="question_count" property="questionCount"/>
+        <result column="status" property="status"/>
+        <result column="reason" property="reason"/>
+        <result column="upload_time" property="uploadTime"/>
+        <result column="audit_time" property="auditTime"/>
+        <result column="auditor_id" property="auditorId"/>
+        <result column="is_shared" property="isShared"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        bank_id, bank_name, subject, description, uploader_id, uploader, question_count, status, reason, upload_time, audit_time, auditor_id, is_shared
+    </sql>
+
+    <insert id="insert" parameterType="com.example.entity.exam.ExamBank" useGeneratedKeys="true" keyProperty="bankId">
+        INSERT INTO exam_bank (bank_name, subject, description, uploader_id, uploader, question_count, status, reason, upload_time, audit_time, auditor_id, is_shared)
+        VALUES (#{bankName}, #{subject}, #{description}, #{uploaderId}, #{uploader}, #{questionCount}, #{status}, #{reason}, NOW(), NULL, #{auditorId}, #{isShared})
+    </insert>
+
+    <delete id="deleteById" parameterType="java.lang.Integer">
+        DELETE FROM exam_bank WHERE bank_id = #{bankId}
+    </delete>
+
+    <update id="updateById" parameterType="com.example.entity.exam.ExamBank">
+        UPDATE exam_bank
+        SET bank_name = #{bankName},
+            subject = #{subject},
+            description = #{description},
+            uploader_id = #{uploaderId},
+            uploader = #{uploader},
+            question_count = #{questionCount},
+            status = #{status},
+            reason = #{reason},
+            audit_time = NOW(),
+            auditor_id = #{auditorId},
+            is_shared = #{isShared}
+        WHERE bank_id = #{bankId}
+    </update>
+
+    <select id="selectById" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_bank
+        WHERE bank_id = #{bankId}
+    </select>
+
+    <select id="selectAll" parameterType="com.example.entity.exam.ExamBank" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_bank
+        <where>
+            <if test="subject != null and subject != ''">
+                AND subject LIKE CONCAT('%', #{subject}, '%')
+            </if>
+            <if test="uploaderId != null">
+                AND uploader_id = #{uploaderId}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="bankName != null and bankName != ''">
+                AND bank_name LIKE CONCAT('%', #{bankName}, '%')
+            </if>
+        </where>
+        ORDER BY upload_time DESC
+    </select>
+
+    <select id="selectBySubject" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_bank
+        WHERE subject = #{subject}
+        ORDER BY upload_time DESC
+    </select>
+
+    <select id="selectByUploaderId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_bank
+        WHERE uploader_id = #{uploaderId}
+        ORDER BY upload_time DESC
+    </select>
+
+    <select id="selectByStatus" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_bank
+        WHERE status = #{status}
+        ORDER BY upload_time DESC
+    </select>
+
+</mapper>

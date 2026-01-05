@@ -1,0 +1,58 @@
+package com.example.service.exam;
+
+import com.example.entity.exam.ExamRecord;
+import com.example.mapper.exam.ExamRecordMapper;
+import org.springframework.stereotype.Service;
+
+import jakarta.annotation.Resource;
+import java.util.List;
+
+/**
+ * 考试记录服务实现类
+ */
+@Service
+public class ExamRecordServiceImpl implements ExamRecordService {
+
+    @Resource
+    private ExamRecordMapper examRecordMapper;
+
+    @Override
+    public int insert(ExamRecord examRecord) {
+        return examRecordMapper.insert(examRecord);
+    }
+
+    @Override
+    public int deleteById(Integer id) {
+        return examRecordMapper.deleteById(id);
+    }
+
+    @Override
+    public int updateById(ExamRecord examRecord) {
+        return examRecordMapper.updateById(examRecord);
+    }
+
+    @Override
+    public ExamRecord selectById(Integer id) {
+        return examRecordMapper.selectById(id);
+    }
+
+    @Override
+    public List<ExamRecord> selectAll(ExamRecord examRecord) {
+        return examRecordMapper.selectAll(examRecord);
+    }
+
+    @Override
+    public List<ExamRecord> selectByUserId(Integer userId) {
+        return examRecordMapper.selectByUserId(userId);
+    }
+
+    @Override
+    public List<ExamRecord> selectBySubjectId(Integer subjectId) {
+        return examRecordMapper.selectBySubjectId(subjectId);
+    }
+
+    @Override
+    public List<ExamRecord> selectByDateRange(String startDate, String endDate) {
+        return examRecordMapper.selectByDateRange(startDate, endDate);
+    }
+}

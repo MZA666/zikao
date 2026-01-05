@@ -4,7 +4,7 @@ import axios from "axios";
 
 const request = axios.create({
     baseURL: import.meta.env.VITE_BASE_URL,
-    timeout: 30000  // 后台接口超时时间设置
+    timeout: 60000  // 增加超时时间到60秒
 })
 
 // request 拦截器
@@ -44,6 +44,24 @@ request.interceptors.response.use(
     },
         error => {
         console.log('err' + error)
+        // 检查是否是超时错误
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+            ElMessage.error('请求超时，请检查网络连接或后端服务是否正常运行');
+        } else if (error.response) {
+            // 服务器返回了错误状态码
+            const status = error.response.status;
+            if (status === 401) {
+                ElMessage.error('登录已过期，请重新登录');
+                router.push("/login");
+            } else if (status === 500) {
+                ElMessage.error('服务器内部错误，请稍后重试');
+            } else {
+                ElMessage.error(`请求失败: ${error.response.data?.msg || error.response.statusText}`);
+            }
+        } else {
+            // 网络错误或其他错误
+            ElMessage.error('网络错误或后端服务未启动，请检查后端服务是否正常运行');
+        }
         return Promise.reject(error)
     }
 )

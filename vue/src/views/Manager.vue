@@ -19,7 +19,7 @@
             router
             style="border: none"
             :default-active="router.currentRoute.value.path"
-            :default-openeds="data.isManager ? ['user', 'audit'] : ['upload']"
+            :default-openeds="data.isManager ? ['user', 'audit', 'exam'] : ['upload']"
         >
           <el-menu-item index="/manager/home">
             <el-icon><HomeFilled /></el-icon>
@@ -43,6 +43,16 @@
             <el-menu-item index="/manager/file-audit">
               <el-icon><FolderOpened /></el-icon>
               <span>课程资料审核</span>
+            </el-menu-item>
+          </el-sub-menu>
+          <el-sub-menu index="exam" v-if="data.isManager">
+            <template #title>
+              <el-icon><Edit /></el-icon>
+              <span>考试管理</span>
+            </template>
+            <el-menu-item index="/manager/exam-management">
+              <el-icon><List /></el-icon>
+              <span>考试管理</span>
             </el-menu-item>
           </el-sub-menu>
           <el-sub-menu index="user">
@@ -73,7 +83,7 @@
 import { reactive, onMounted } from "vue";
 import router from "@/router";
 import {ElMessage} from "element-plus";
-import {HomeFilled, User, SwitchButton, Document, FolderOpened, Upload, Folder} from '@element-plus/icons-vue';
+import {HomeFilled, User, SwitchButton, Document, FolderOpened, Upload, Folder, Edit, List} from '@element-plus/icons-vue';
 import request from "@/utils/request";
 
 const data = reactive({
