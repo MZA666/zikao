@@ -33,4 +33,9 @@ public interface QuestionOptionMapper {
      * 根据题目ID查询所有选项
      */
     List<QuestionOption> selectByQuestionId(@Param("questionId") Integer questionId);
+    
+    /**
+     * 批量插入题目选项
+     */
+    int batchInsert(@Param("options") List<QuestionOption> options);
 }

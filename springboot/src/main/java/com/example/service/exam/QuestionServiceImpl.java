@@ -86,8 +86,8 @@ public class QuestionServiceImpl implements QuestionService {
             // 插入选项
             for (QuestionOption option : options) {
                 option.setQuestionId(question.getId());
-                optionMapper.insert(option);
             }
+            optionMapper.batchInsert(options);
         }
         return result;
     }

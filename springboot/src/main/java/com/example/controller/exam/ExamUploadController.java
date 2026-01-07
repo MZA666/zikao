@@ -2,6 +2,7 @@ package com.example.controller.exam;
 
 import com.example.common.Result;
 import com.example.entity.exam.Question;
+import com.example.entity.exam.QuestionOption;
 import com.example.service.exam.QuestionService;
 import com.example.utils.WordExamParserUtil;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,7 @@ import jakarta.annotation.Resource;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -80,6 +82,86 @@ public class ExamUploadController {
             if (tempFile != null && tempFile.exists()) {
                 tempFile.delete();
             }
+        }
+    }
+
+    /**
+     * 批量上传题目
+     */
+    @PostMapping("/batch")
+    public Result batchUploadQuestions(@RequestBody Map<String, Object> requestData) {
+        try {
+            // 获取题目列表
+            @SuppressWarnings("unchecked")
+            java.util.List<Map<String, Object>> questions = 
+                (java.util.List<Map<String, Object>>) requestData.get("questions");
+            
+            if (questions == null || questions.isEmpty()) {
+                return Result.error("题目列表不能为空");
+            }
+
+            int successCount = 0;
+            for (Map<String, Object> questionData : questions) {
+                // 创建Question对象
+                Question question = new Question();
+                
+                // 设置基本属性
+                question.setSubjectId((Integer) questionData.get("subjectId"));
+                question.setType((String) questionData.get("type"));
+                question.setContent((String) questionData.get("content"));
+                question.setAnswer((String) questionData.get("answer"));
+                
+                // 安全地获取可能为null的字段
+                Object analysisObj = questionData.get("analysis");
+                question.setAnalysis(analysisObj != null ? analysisObj.toString() : null);
+                
+                Object chapterObj = questionData.get("chapter");
+                question.setChapter(chapterObj != null ? chapterObj.toString() : null);
+                
+                Object difficultyObj = questionData.get("difficulty");
+                question.setDifficulty(difficultyObj != null ? difficultyObj.toString() : "MEDIUM");
+                
+                // 处理选项
+                @SuppressWarnings("unchecked")
+                java.util.List<Map<String, Object>> options = 
+                    (java.util.List<Map<String, Object>>) questionData.get("options");
+                
+                if (options != null && !options.isEmpty()) {
+                    // 如果是选择题，创建选项列表
+                    java.util.List<QuestionOption> questionOptions = new java.util.ArrayList<>();
+                    
+                    for (int i = 0; i < options.size(); i++) {
+                        Map<String, Object> optionData = options.get(i);
+                        
+                        QuestionOption option = new QuestionOption();
+                        option.setOptionKey((String) optionData.get("label"));
+                        Object contentObj = optionData.get("content");
+                        option.setContent(contentObj != null ? contentObj.toString() : "");
+                        Object isCorrectObj = optionData.get("isCorrect");
+                        option.setIsCorrect(isCorrectObj != null ? (Boolean) isCorrectObj : false);
+                        option.setSortOrder(i + 1);
+                        
+                        questionOptions.add(option);
+                    }
+                    
+                    // 使用服务层的批量插入方法
+                    int result = questionService.insertQuestionWithOptions(question, questionOptions);
+                    if (result > 0) {
+                        successCount++;
+                    }
+                } else {
+                    // 没有选项的题目，直接插入
+                    int result = questionService.insert(question);
+                    if (result > 0) {
+                        successCount++;
+                    }
+                }
+            }
+
+            return Result.success("成功批量上传" + successCount + "道题目");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("批量上传失败: " + e.getMessage());
         }
     }
 }

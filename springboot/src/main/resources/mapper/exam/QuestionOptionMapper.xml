@@ -47,5 +47,13 @@
         WHERE question_id = #{questionId}
         ORDER BY sort_order ASC
     </select>
+    
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO question_option (question_id, option_key, content, is_correct, sort_order, created_time)
+        VALUES
+        <foreach collection="options" item="option" separator=",">
+            (#{option.questionId}, #{option.optionKey}, #{option.content}, #{option.isCorrect}, #{option.sortOrder}, NOW())
+        </foreach>
+    </insert>
 
 </mapper>
