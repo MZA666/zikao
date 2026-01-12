@@ -208,6 +208,7 @@ export default {
   data() {
     return {
       activeTab: 'file', // 新增：当前激活的选项卡
+      currentUser: {}, // 当前登录用户信息
       subjects: [],
       uploadForm: {
         subjectId: ''
@@ -260,9 +261,22 @@ D.图形显示屏（消防设施）
   },
   computed: {
     uploadFormData() {
-      return {
+      // 将当前用户信息也包含在上传数据中
+      const data = {
         subjectId: this.uploadForm.subjectId
+      };
+      
+      // 添加用户信息
+      if (this.currentUser && this.currentUser.userId) {
+        data.userId = this.currentUser.userId;
       }
+      if (this.currentUser && this.currentUser.name) {
+        data.username = this.currentUser.name;
+      } else if (this.currentUser && this.currentUser.username) {
+        data.username = this.currentUser.username;
+      }
+      
+      return data;
     },
     // 新增：根据题目类型显示相关字段
     showChapterField() {
@@ -273,9 +287,21 @@ D.图形显示屏（消防设施）
     }
   },
   created() {
+    this.loadCurrentUser(); // 加载当前用户信息
     this.loadSubjects()
   },
   methods: {
+    // 加载当前用户信息
+    loadCurrentUser() {
+      const userData = localStorage.getItem('system-user');
+      if (userData) {
+        this.currentUser = JSON.parse(userData);
+      } else {
+        this.$message.error('请先登录');
+        this.$router.push('/login');
+      }
+    },
+    
     // 加载学科列表
     async loadSubjects() {
       try {
@@ -501,10 +527,14 @@ D.图形显示屏（消防设施）
       this.batchUploading = true;
       
       try {
-        // 发送批量上传请求
-        const response = await request.post('/exam/upload/batch', {
-          questions: this.batchQuestions
-        });
+        // 发送批量上传请求，包含用户信息
+        const requestData = {
+          questions: this.batchQuestions,
+          userId: this.currentUser.userId,
+          username: this.currentUser.name || this.currentUser.username
+        };
+        
+        const response = await request.post('/exam/upload/batch', requestData);
         
         if (response.code === 200) {
           this.$message.success(response.msg || `成功上传${this.batchQuestions.length}道题目`);

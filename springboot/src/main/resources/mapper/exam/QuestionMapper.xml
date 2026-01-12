@@ -13,15 +13,17 @@
         <result column="difficulty" property="difficulty"/>
         <result column="created_time" property="createdTime"/>
         <result column="updated_time" property="updatedTime"/>
+        <result column="uploader_id" property="uploaderId"/>
+        <result column="uploader" property="uploader"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, subject_id, type, content, answer, analysis, chapter, difficulty, created_time, updated_time
+        id, subject_id, type, content, answer, analysis, chapter, difficulty, created_time, updated_time, uploader_id, uploader
     </sql>
 
     <insert id="insert" parameterType="com.example.entity.exam.Question" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO question (subject_id, type, content, answer, analysis, chapter, difficulty, created_time, updated_time)
-        VALUES (#{subjectId}, #{type}, #{content}, #{answer}, #{analysis}, #{chapter}, #{difficulty}, NOW(), NOW())
+        INSERT INTO question (subject_id, type, content, answer, analysis, chapter, difficulty, created_time, updated_time, uploader_id, uploader)
+        VALUES (#{subjectId}, #{type}, #{content}, #{answer}, #{analysis}, #{chapter}, #{difficulty}, NOW(), NOW(), #{uploaderId}, #{uploader})
     </insert>
 
     <delete id="deleteById" parameterType="java.lang.Integer">
@@ -37,6 +39,8 @@
             analysis = #{analysis},
             chapter = #{chapter},
             difficulty = #{difficulty},
+            uploader_id = #{uploaderId},
+            uploader = #{uploader},
             updated_time = NOW()
         WHERE id = #{id}
     </update>
@@ -60,6 +64,9 @@
             <if test="content != null and content != ''">
                 AND content LIKE CONCAT('%', #{content}, '%')
             </if>
+            <if test="uploaderId != null">
+                AND uploader_id = #{uploaderId}
+            </if>
         </where>
         ORDER BY created_time DESC
     </select>
@@ -76,6 +83,42 @@
         FROM question
         WHERE type = #{type}
         ORDER BY created_time DESC
+    </select>
+
+    <select id="selectRandomQuestions" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM question
+        WHERE subject_id = #{subjectId}
+        <if test="type != null and type != ''">
+            AND type = #{type}
+        </if>
+        ORDER BY RAND()
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectRandomQuestionsByDifficulty" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM question
+        WHERE subject_id = #{subjectId}
+        <if test="difficulty != null and difficulty != ''">
+            AND difficulty = #{difficulty}
+        </if>
+        ORDER BY RAND()
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectRandomQuestionsByTypeAndDifficulty" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM question
+        WHERE subject_id = #{subjectId}
+        <if test="type != null and type != ''">
+            AND type = #{type}
+        </if>
+        <if test="difficulty != null and difficulty != ''">
+            AND difficulty = #{difficulty}
+        </if>
+        ORDER BY RAND()
+        LIMIT #{limit}
     </select>
 
 </mapper>

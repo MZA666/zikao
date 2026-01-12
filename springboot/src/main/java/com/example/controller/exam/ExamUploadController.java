@@ -3,35 +3,37 @@ package com.example.controller.exam;
 import com.example.common.Result;
 import com.example.entity.exam.Question;
 import com.example.entity.exam.QuestionOption;
+import com.example.service.exam.QuestionOptionService;
 import com.example.service.exam.QuestionService;
 import com.example.utils.WordExamParserUtil;
+import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.annotation.Resource;
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * 题库上传控制器
- */
 @RestController
 @RequestMapping("/exam/upload")
 public class ExamUploadController {
 
     @Resource
     private QuestionService questionService;
+    
+    @Resource
+    private QuestionOptionService optionService;
 
     /**
      * 上传Word题库文件
      */
     @PostMapping("/bank")
-    public Result uploadExamBank(@RequestParam("file") MultipartFile file, 
+    public Result uploadExamBank(@RequestParam("file") MultipartFile file,
                                  @RequestParam("subjectId") Integer subjectId,
-                                 @RequestParam(value = "subjectName", required = false) String subjectName) {
+                                 @RequestParam(value = "subjectName", required = false) String subjectName,
+                                 @RequestParam(value = "userId", required = false) Integer userId,
+                                 @RequestParam(value = "username", required = false) String username) {
         if (file.isEmpty()) {
             return Result.error("文件不能为空");
         }
@@ -40,6 +42,11 @@ public class ExamUploadController {
         String fileName = file.getOriginalFilename();
         if (fileName == null || (!fileName.toLowerCase().endsWith(".doc") && !fileName.toLowerCase().endsWith(".docx"))) {
             return Result.error("只支持.doc和.docx格式的文件");
+        }
+
+        // 验证必要参数
+        if (subjectId == null) {
+            return Result.error("学科ID不能为空");
         }
 
         // 创建临时文件
@@ -63,6 +70,13 @@ public class ExamUploadController {
             int successCount = 0;
             for (Question question : questions) {
                 question.setSubjectId(subjectId);
+                // 设置上传者信息（如果提供了的话）
+                if (userId != null) {
+                    question.setUploaderId(userId);
+                }
+                if (username != null) {
+                    question.setUploader(username);
+                }
                 // 设置默认难度
                 if (question.getDifficulty() == null) {
                     question.setDifficulty("MEDIUM");
@@ -96,6 +110,10 @@ public class ExamUploadController {
             java.util.List<Map<String, Object>> questions = 
                 (java.util.List<Map<String, Object>>) requestData.get("questions");
             
+            // 获取用户信息
+            Integer userId = (Integer) requestData.get("userId");
+            String username = (String) requestData.get("username");
+            
             if (questions == null || questions.isEmpty()) {
                 return Result.error("题目列表不能为空");
             }
@@ -106,10 +124,19 @@ public class ExamUploadController {
                 Question question = new Question();
                 
                 // 设置基本属性
-                question.setSubjectId((Integer) questionData.get("subjectId"));
+                Integer subjectId = (Integer) questionData.get("subjectId");
+                if (subjectId == null) {
+                    continue; // 跳过无效题目
+                }
+                
+                question.setSubjectId(subjectId);
                 question.setType((String) questionData.get("type"));
                 question.setContent((String) questionData.get("content"));
                 question.setAnswer((String) questionData.get("answer"));
+                
+                // 设置上传者信息
+                question.setUploaderId(userId);
+                question.setUploader(username);
                 
                 // 安全地获取可能为null的字段
                 Object analysisObj = questionData.get("analysis");
@@ -145,8 +172,14 @@ public class ExamUploadController {
                     }
                     
                     // 使用服务层的批量插入方法
-                    int result = questionService.insertQuestionWithOptions(question, questionOptions);
+                    int result = questionService.insert(question);
                     if (result > 0) {
+                        // 获取刚插入的题目ID，然后插入选项
+                        Integer questionId = question.getId();
+                        for (QuestionOption option : questionOptions) {
+                            option.setQuestionId(questionId);
+                            optionService.insert(option);
+                        }
                         successCount++;
                     }
                 } else {

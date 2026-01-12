@@ -168,7 +168,9 @@ export default {
       currentPracticeQuestions: [],
       currentQuestionIndex: 0,
       userAnswers: [],
-      collectedQuestionsWithDetails: [] // 包含题目详情的收藏列表
+      collectedQuestionsWithDetails: [], // 包含题目详情的收藏列表
+      // 添加收藏题库的相关数据
+      collectedBanks: [] // 收藏的题库列表
     }
   },
   computed: {
@@ -182,6 +184,8 @@ export default {
   created() {
     this.loadSubjects()
     this.loadCollectedQuestions()
+    // 加载收藏的题库
+    this.loadCollectedBanks()
   },
   methods: {
     // 加载学科列表
@@ -230,6 +234,21 @@ export default {
           .map(question => ({ question }))
       } catch (error) {
         console.error('加载收藏题目失败:', error)
+      }
+    },
+    
+    // 加载收藏的题库
+    async loadCollectedBanks() {
+      try {
+        const userId = localStorage.getItem('userId')
+        if (!userId) {
+          return
+        }
+        
+        const response = await request.get(`/exam/bank/user/${userId}/collections`)
+        this.collectedBanks = response.data || []
+      } catch (error) {
+        console.error('加载收藏题库失败:', error)
       }
     },
     

@@ -3,9 +3,6 @@ package com.example.entity.exam;
 import java.util.Date;
 import java.util.List;
 
-/**
- * 题目实体类
- */
 public class Question {
     private Integer id; // 题目ID
     private Integer subjectId; // 学科ID
@@ -17,6 +14,8 @@ public class Question {
     private String difficulty; // 难度：EASY(简单)、MEDIUM(中等)、HARD(困难)
     private Date createdTime; // 创建时间
     private Date updatedTime; // 更新时间
+    private Integer uploaderId; // 上传者ID
+    private String uploader; // 上传者姓名
     
     // 关联的选项列表（对于选择题）
     private List<QuestionOption> options;
@@ -100,6 +99,22 @@ public class Question {
 
     public void setUpdatedTime(Date updatedTime) {
         this.updatedTime = updatedTime;
+    }
+
+    public Integer getUploaderId() {
+        return uploaderId;
+    }
+
+    public void setUploaderId(Integer uploaderId) {
+        this.uploaderId = uploaderId;
+    }
+
+    public String getUploader() {
+        return uploader;
+    }
+
+    public void setUploader(String uploader) {
+        this.uploader = uploader;
     }
 
     public List<QuestionOption> getOptions() {

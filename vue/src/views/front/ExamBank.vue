@@ -43,6 +43,9 @@
           <h3 class="bank-name">{{ bank.bankName || getSubjectName(bank.subjectId) + '题库' }}</h3>
           <div class="bank-actions">
             <el-button size="small" type="primary" @click="startPractice(bank)">练习</el-button>
+            <el-button size="small" type="warning" @click="collectBank(bank)" :loading="isCollecting[bank.bankId]">
+              {{ isCollected[bank.bankId] ? '已收藏' : '收藏' }}
+            </el-button>
           </div>
         </div>
         <div class="bank-info">
@@ -179,7 +182,10 @@ export default {
       currentBankQuestions: [],
       currentQuestionIndex: 0,
       userAnswers: [],
-      currentQuestion: {}
+      currentQuestion: {},
+      // 新增收藏相关的数据
+      isCollected: {}, // 记录题库是否已被收藏
+      isCollecting: {} // 记录正在收藏的题库
     }
   },
   computed: {
@@ -191,6 +197,8 @@ export default {
   created() {
     this.loadSubjects()
     this.loadExamBanks()
+    // 检查收藏状态
+    this.checkCollectionStatus()
   },
   methods: {
     // 加载学科列表
@@ -206,35 +214,57 @@ export default {
     // 加载题库列表
     async loadExamBanks() {
       try {
-        const params = {
-          pageNum: this.currentPage,
-          pageSize: this.pageSize
-        }
-        
+        // 首先尝试从题库统计接口获取数据
+        const params = {}
         if (this.searchSubjectId) {
-          params.subject = this.getSubjectName(this.searchSubjectId)
+          params.subjectId = this.searchSubjectId
         }
         
-        if (this.searchBankName) {
-          params.bankName = this.searchBankName
+        const response = await request.get('/exam/bank/stats', { params })
+        let examBanks = Array.isArray(response.data) ? response.data : response.data || []
+        
+        // 如果通过统计接口没有获取到数据，尝试从bank/list接口获取
+        if (!examBanks || examBanks.length === 0) {
+          const bankParams = {
+            pageNum: this.currentPage,
+            pageSize: this.pageSize
+          }
+          
+          // 如果选择了学科，通过学科名称查询
+          if (this.searchSubjectId) {
+            const selectedSubject = this.subjects.find(s => s.id == this.searchSubjectId);
+            if (selectedSubject) {
+              bankParams.subject = selectedSubject.name
+            }
+          }
+          
+          if (this.searchBankName) {
+            bankParams.bankName = this.searchBankName
+          }
+          
+          const bankResponse = await request.get('/exam/bank/list', { bankParams })
+          examBanks = Array.isArray(bankResponse.data.list) ? bankResponse.data.list : bankResponse.data || []
         }
         
-        const response = await request.get('/exam/bank/list', { params })
-        this.examBanks = Array.isArray(response.data.list) ? response.data.list : response.data
-        this.total = response.data.total || this.examBanks.length
-        
-        // 如果没有找到题库，从题目统计中获取数据
-        if (this.examBanks.length === 0) {
-          await this.loadFromQuestionStats()
+        // 如果仍然没有数据，通过题目统计构建虚拟题库
+        if (!examBanks || examBanks.length === 0) {
+          examBanks = await this.loadFromQuestionStats()
         }
+        
+        this.examBanks = examBanks
+        this.total = this.examBanks.length
+        
+        // 检查收藏状态
+        this.checkCollectionStatus()
       } catch (error) {
         console.error('加载题库列表失败:', error)
-        // 如果调用新接口失败，尝试从题目统计中获取数据
-        await this.loadFromQuestionStats()
+        // 如果所有方法都失败，尝试从题目统计中获取数据
+        this.examBanks = await this.loadFromQuestionStats()
+        this.total = this.examBanks.length
       }
     },
     
-    // 从题目统计中加载数据（兼容性处理）
+    // 从题目统计中加载数据（作为备选方案）
     async loadFromQuestionStats() {
       try {
         // 获取所有题目并按学科分组统计
@@ -248,7 +278,7 @@ export default {
         }
         
         const response = await request.get('/exam/question/list', { params })
-        const questions = Array.isArray(response.data.list) ? response.data.list : response.data
+        const questions = Array.isArray(response.data.list) ? response.data.list : response.data || []
         
         // 按学科ID分组统计题目数量
         const subjectStats = {}
@@ -258,7 +288,9 @@ export default {
             subjectStats[subjectId] = {
               subjectId: subjectId,
               questionCount: 0,
-              latestTime: question.createdTime || question.updatedTime || question.uploadTime
+              latestTime: question.createdTime || question.updatedTime || question.uploadTime,
+              uploader: '系统',
+              description: '自动生成的题库'
             }
           }
           subjectStats[subjectId].questionCount++
@@ -271,30 +303,98 @@ export default {
         })
         
         // 转换为题库列表
-        this.examBanks = Object.keys(subjectStats).map(subjectId => {
+        const examBanks = Object.keys(subjectStats).map(subjectId => {
           const subject = this.subjects.find(s => s.id == subjectId)
           return {
-            bankId: subjectId,
+            bankId: subjectId, // 使用学科ID作为bankId
             subjectId: parseInt(subjectId),
             bankName: subject ? subject.name + '题库' : '未知题库',
             questionCount: subjectStats[subjectId].questionCount,
             uploadTime: subjectStats[subjectId].latestTime,
-            uploader: subject ? subject.name : '未知',
-            description: subject ? subject.description : ''
+            uploader: subjectStats[subjectId].uploader,
+            description: subjectStats[subjectId].description
           }
         })
         
         // 应用搜索条件
         if (this.searchBankName) {
-          this.examBanks = this.examBanks.filter(bank => 
+          return examBanks.filter(bank => 
             bank.bankName.toLowerCase().includes(this.searchBankName.toLowerCase())
           )
         }
         
-        this.total = this.examBanks.length
+        return examBanks
       } catch (error) {
         console.error('从题目统计加载题库失败:', error)
         this.$message.error('加载题库列表失败')
+        return []
+      }
+    },
+    
+    // 检查收藏状态
+    async checkCollectionStatus() {
+      try {
+        const userId = localStorage.getItem('userId') || JSON.parse(localStorage.getItem('system-user')).userId
+        if (!userId) return
+
+        // 获取用户收藏的题库ID列表
+        const response = await request.get(`/exam/bank/user/${userId}/collections`)
+        const collectedBankIds = response.data || []
+
+        // 更新收藏状态
+        const newIsCollected = {}
+        this.examBanks.forEach(bank => {
+          newIsCollected[bank.bankId] = collectedBankIds.includes(bank.bankId)
+        })
+        this.isCollected = newIsCollected
+      } catch (error) {
+        console.error('检查收藏状态失败:', error)
+      }
+    },
+    
+    // 收藏题库
+    async collectBank(bank) {
+      try {
+        const userId = localStorage.getItem('userId') || JSON.parse(localStorage.getItem('system-user')).userId
+        if (!userId) {
+          this.$message.error('请先登录')
+          return
+        }
+
+        // 设置加载状态
+        this.$set(this.isCollecting, bank.bankId, true)
+
+        if (this.isCollected[bank.bankId]) {
+          // 取消收藏
+          const response = await request.delete(`/exam/bank/collection/${userId}/${bank.bankId}`)
+          if (response.code === 200) {
+            this.$message.success('已取消收藏')
+            this.$set(this.isCollected, bank.bankId, false)
+          } else {
+            this.$message.error(response.msg || '取消收藏失败')
+          }
+        } else {
+          // 添加收藏
+          const collectionData = {
+            userId: parseInt(userId),
+            bankId: bank.bankId,
+            bankName: bank.bankName,
+            subjectId: bank.subjectId
+          }
+          const response = await request.post('/exam/bank/collection', collectionData)
+          if (response.code === 200) {
+            this.$message.success('收藏成功')
+            this.$set(this.isCollected, bank.bankId, true)
+          } else {
+            this.$message.error(response.msg || '收藏失败')
+          }
+        }
+      } catch (error) {
+        console.error('收藏操作失败:', error)
+        this.$message.error('收藏操作失败')
+      } finally {
+        // 清除加载状态
+        this.$set(this.isCollecting, bank.bankId, false)
       }
     },
     
@@ -321,7 +421,7 @@ export default {
           pageSize: 1000 // 获取所有题目
         }
         const response = await request.get('/exam/question/list', { params })
-        let questions = Array.isArray(response.data.list) ? response.data.list : response.data
+        let questions = Array.isArray(response.data.list) ? response.data.list : response.data || []
         
         if (questions.length === 0) {
           this.$message.warning('该题库暂无题目')
@@ -332,7 +432,7 @@ export default {
         for (let i = 0; i < questions.length; i++) {
           if (!questions[i].options || questions[i].options.length === 0) {
             const detailResponse = await request.get(`/exam/question/${questions[i].id}`)
-            questions[i].options = detailResponse.data.options || []
+            questions[i].options = detailResponse.data?.options || []
           }
         }
         

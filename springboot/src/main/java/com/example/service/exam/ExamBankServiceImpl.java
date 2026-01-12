@@ -7,9 +7,6 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.Resource;
 import java.util.List;
 
-/**
- * 题库服务实现类
- */
 @Service
 public class ExamBankServiceImpl implements ExamBankService {
 

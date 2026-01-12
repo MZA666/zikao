@@ -34,6 +34,15 @@
             </el-checkbox-group>
           </el-form-item>
           
+          <el-form-item label="题目难度">
+            <el-select v-model="examConfig.difficulty" placeholder="请选择难度">
+              <el-option label="全部难度" value=""></el-option>
+              <el-option label="简单" value="EASY"></el-option>
+              <el-option label="中等" value="MEDIUM"></el-option>
+              <el-option label="困难" value="HARD"></el-option>
+            </el-select>
+          </el-form-item>
+          
           <el-form-item label="考试时长(分钟)">
             <el-input-number v-model="examConfig.duration" :min="10" :max="180" />
           </el-form-item>
@@ -164,6 +173,7 @@ export default {
         subjectId: '',
         questionCount: 20,
         questionTypes: ['SINGLE_CHOICE', 'TRUE_FALSE'],
+        difficulty: '', // 添加难度筛选
         duration: 60
       },
       examQuestions: [],
@@ -221,7 +231,8 @@ export default {
         const params = {
           subjectId: this.examConfig.subjectId,
           questionCount: this.examConfig.questionCount,
-          questionTypes: this.examConfig.questionTypes.join(',')
+          questionTypes: this.examConfig.questionTypes.join(','),
+          difficulty: this.examConfig.difficulty // 添加难度参数
         }
         
         const response = await request.post('/exam/paper/generate', {}, { params })

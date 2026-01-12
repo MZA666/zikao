@@ -5,47 +5,74 @@ import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
-/**
- * 题目数据操作接口
- */
 public interface QuestionMapper {
-    /**
-     * 新增题目
-     */
-    int insert(Question question);
+
+    int deleteByPrimaryKey(Integer id);
+
+    int insert(Question record);
+
+    int insertSelective(Question record);
+
+    Question selectByPrimaryKey(Integer id);
+
+    int updateByPrimaryKeySelective(Question record);
+
+    int updateByPrimaryKey(Question record);
 
     /**
-     * 根据ID删除题目
+     * 新增
+     */
+    int insertOrUpdate(Question record);
+
+    /**
+     * 删除
      */
     int deleteById(Integer id);
 
     /**
-     * 更新题目
+     * 修改
      */
-    int updateById(Question question);
+    int updateById(Question record);
 
     /**
-     * 根据ID查询题目
+     * 根据ID查询
      */
     Question selectById(Integer id);
 
     /**
-     * 查询所有题目
+     * 查询所有
      */
     List<Question> selectAll(Question question);
 
     /**
-     * 根据学科ID查询题目
+     * 根据学科ID查询
      */
     List<Question> selectBySubjectId(@Param("subjectId") Integer subjectId);
 
     /**
-     * 根据题目类型查询题目
+     * 根据题目类型查询
      */
     List<Question> selectByType(@Param("type") String type);
 
     /**
-     * 根据用户ID查询收藏的题目
+     * 随机获取指定数量的题目
      */
-    List<Question> selectByUserId(@Param("userId") Integer userId);
+    List<Question> selectRandomQuestions(@Param("subjectId") Integer subjectId, 
+                                       @Param("type") String type, 
+                                       @Param("limit") Integer limit);
+
+    /**
+     * 根据难度随机获取指定数量的题目
+     */
+    List<Question> selectRandomQuestionsByDifficulty(@Param("subjectId") Integer subjectId, 
+                                                   @Param("difficulty") String difficulty, 
+                                                   @Param("limit") Integer limit);
+
+    /**
+     * 根据类型和难度随机获取指定数量的题目
+     */
+    List<Question> selectRandomQuestionsByTypeAndDifficulty(@Param("subjectId") Integer subjectId, 
+                                                          @Param("type") String type, 
+                                                          @Param("difficulty") String difficulty, 
+                                                          @Param("limit") Integer limit);
 }

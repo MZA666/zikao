@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.annotation.Resource;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -39,6 +40,9 @@ public class ExamController {
     
     @Resource
     private ExamBankService examBankService;
+    
+    @Resource
+    private ExamBankCollectionService examBankCollectionService;
 
     // 学科相关接口
     @PostMapping("/subject")
@@ -143,21 +147,54 @@ public class ExamController {
         return Result.success(questions);
     }
 
+    // 获取题目统计信息（按学科分组）
+    @GetMapping("/question/stats")
+    public Result getQuestionStats(@RequestParam(required = false) Integer subjectId) {
+        List<Question> questions;
+        if (subjectId != null) {
+            questions = questionService.selectBySubjectId(subjectId);
+        } else {
+            questions = questionService.selectAll(new Question());
+        }
+        
+        // 按学科ID分组统计
+        Map<Integer, Long> stats = questions.stream()
+            .collect(Collectors.groupingBy(
+                Question::getSubjectId,
+                Collectors.counting()
+            ));
+        
+        return Result.success(stats);
+    }
+
     // 生成模拟考试试卷
     @PostMapping("/paper/generate")
     public Result generateExamPaper(@RequestParam Integer subjectId,
                                    @RequestParam Integer questionCount,
-                                   @RequestParam(required = false) String questionTypes) {
+                                   @RequestParam(required = false) String questionTypes,
+                                   @RequestParam(required = false) String difficulty) {
         try {
-            // 随机获取指定数量和类型的题目
+            // 随机获取指定数量、类型和难度的题目
             List<Question> questions;
             if (questionTypes != null && !questionTypes.isEmpty()) {
                 // 如果指定了题目类型，按类型获取
                 String[] types = questionTypes.split(",");
-                questions = questionService.selectRandomQuestions(subjectId, types[0], questionCount);
+                if (difficulty != null && !difficulty.isEmpty()) {
+                    // 如果同时指定了难度
+                    questions = questionService.selectRandomQuestionsByTypeAndDifficulty(subjectId, types[0], difficulty, questionCount);
+                } else {
+                    // 只指定类型，不指定难度
+                    questions = questionService.selectRandomQuestions(subjectId, types[0], questionCount);
+                }
             } else {
-                // 否则获取任意类型
-                questions = questionService.selectRandomQuestions(subjectId, null, questionCount);
+                // 没有指定题目类型
+                if (difficulty != null && !difficulty.isEmpty()) {
+                    // 如果指定了难度
+                    questions = questionService.selectRandomQuestionsByDifficulty(subjectId, difficulty, questionCount);
+                } else {
+                    // 没有指定类型和难度
+                    questions = questionService.selectRandomQuestions(subjectId, null, questionCount);
+                }
             }
             
             // 构建试卷
@@ -237,6 +274,37 @@ public class ExamController {
     @GetMapping("/collection/check/{userId}/{questionId}")
     public Result checkCollection(@PathVariable Integer userId, @PathVariable Integer questionId) {
         boolean isCollected = collectionService.isCollected(userId, questionId);
+        return Result.success(isCollected);
+    }
+    
+    // 题库收藏相关接口
+    @PostMapping("/bank/collection")
+    public Result addBankCollection(@RequestBody ExamBankCollection collection) {
+        // 检查是否已收藏
+        if (examBankCollectionService.isCollected(collection.getUserId(), collection.getBankId())) {
+            return Result.error("已收藏过此题库");
+        }
+        examBankCollectionService.insert(collection);
+        return Result.success("收藏成功");
+    }
+
+    @DeleteMapping("/bank/collection/{userId}/{bankId}")
+    public Result deleteBankCollection(@PathVariable Integer userId, @PathVariable Integer bankId) {
+        examBankCollectionService.deleteByUserIdAndBankId(userId, bankId);
+        return Result.success("取消收藏成功");
+    }
+
+    @GetMapping("/bank/user/{userId}/collections")
+    public Result getUserCollectedBanks(@PathVariable Integer userId) {
+        List<ExamBankCollection> collections = examBankCollectionService.selectByUserId(userId);
+        // 返回收藏的题库ID列表
+        List<Integer> bankIds = collections.stream().map(ExamBankCollection::getBankId).collect(Collectors.toList());
+        return Result.success(bankIds);
+    }
+
+    @GetMapping("/bank/collection/check/{userId}/{bankId}")
+    public Result checkBankCollection(@PathVariable Integer userId, @PathVariable Integer bankId) {
+        boolean isCollected = examBankCollectionService.isCollected(userId, bankId);
         return Result.success(isCollected);
     }
     
@@ -324,5 +392,24 @@ public class ExamController {
     public Result getExamBankByUploader(@PathVariable Integer uploaderId) {
         List<ExamBank> examBanks = examBankService.selectByUploaderId(uploaderId);
         return Result.success(examBanks);
+    }
+    
+    // 题库统计接口
+    @GetMapping("/bank/stats")
+    public Result getBankStats(@RequestParam(required = false) Integer subjectId) {
+        List<ExamBank> banks;
+        if (subjectId != null) {
+            // 根据学科ID查找对应的学科名称，然后查询题库
+            Subject subject = subjectService.selectById(subjectId);
+            if (subject != null) {
+                banks = examBankService.selectBySubject(subject.getName());
+            } else {
+                banks = examBankService.selectAll(null);
+            }
+        } else {
+            banks = examBankService.selectAll(null);
+        }
+        
+        return Result.success(banks);
     }
 }
