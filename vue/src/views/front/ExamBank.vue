@@ -57,13 +57,13 @@
             <span class="label">题目数量：</span>
             <span class="value">{{ bank.questionCount || '未知' }}</span>
           </div>
-          <div class="info-item" v-if="bank.uploadTime">
-            <span class="label">上传时间：</span>
-            <span class="value">{{ formatDate(bank.uploadTime) }}</span>
-          </div>
           <div class="info-item" v-if="bank.uploader">
             <span class="label">上传者：</span>
             <span class="value">{{ bank.uploader }}</span>
+          </div>
+          <div class="info-item" v-if="bank.uploadTime">
+            <span class="label">上传时间：</span>
+            <span class="value">{{ formatDate(bank.uploadTime) }}</span>
           </div>
         </div>
         <div class="bank-description" v-if="bank.description">
@@ -267,52 +267,27 @@ export default {
     // 从题目统计中加载数据（作为备选方案）
     async loadFromQuestionStats() {
       try {
-        // 获取所有题目并按学科分组统计
-        const params = {
-          pageNum: 1,
-          pageSize: 1000 // 获取所有题目进行统计
-        }
-        
+        // 使用新的统计接口
+        const params = {}
         if (this.searchSubjectId) {
           params.subjectId = this.searchSubjectId
         }
         
-        const response = await request.get('/exam/question/list', { params })
-        const questions = Array.isArray(response.data.list) ? response.data.list : response.data || []
-        
-        // 按学科ID分组统计题目数量
-        const subjectStats = {}
-        questions.forEach(question => {
-          const subjectId = question.subjectId
-          if (!subjectStats[subjectId]) {
-            subjectStats[subjectId] = {
-              subjectId: subjectId,
-              questionCount: 0,
-              latestTime: question.createdTime || question.updatedTime || question.uploadTime,
-              uploader: '系统',
-              description: '自动生成的题库'
-            }
-          }
-          subjectStats[subjectId].questionCount++
-          
-          // 更新最新时间
-          const questionTime = question.createdTime || question.updatedTime || question.uploadTime
-          if (questionTime && (!subjectStats[subjectId].latestTime || new Date(questionTime) > new Date(subjectStats[subjectId].latestTime))) {
-            subjectStats[subjectId].latestTime = questionTime
-          }
-        })
+        const response = await request.get('/exam/question/stats-by-uploader', { params })
+        const stats = Array.isArray(response.data) ? response.data : response.data || []
         
         // 转换为题库列表
-        const examBanks = Object.keys(subjectStats).map(subjectId => {
-          const subject = this.subjects.find(s => s.id == subjectId)
+        const examBanks = stats.map((stat, index) => {
+          const subject = this.subjects.find(s => s.id === stat.subjectId)
           return {
-            bankId: subjectId, // 使用学科ID作为bankId
-            subjectId: parseInt(subjectId),
-            bankName: subject ? subject.name + '题库' : '未知题库',
-            questionCount: subjectStats[subjectId].questionCount,
-            uploadTime: subjectStats[subjectId].latestTime,
-            uploader: subjectStats[subjectId].uploader,
-            description: subjectStats[subjectId].description
+            bankId: `virtual_${stat.subjectId}_${stat.uploaderId || 'unknown'}`, // 使用虚拟ID
+            subjectId: stat.subjectId,
+            bankName: stat.subjectName ? `${stat.subjectName} - ${stat.uploader || '未知上传者'}` : `题库 - ${stat.uploader || '未知上传者'}`,
+            questionCount: stat.questionCount,
+            uploadTime: null, // 虚拟题库暂无上传时间
+            uploader: stat.uploader || '未知',
+            uploaderId: stat.uploaderId,
+            description: `${stat.subjectName || '该学科'}由${stat.uploader || '未知用户'}上传的${stat.questionCount}道题目`
           }
         })
         
@@ -341,10 +316,11 @@ export default {
         const response = await request.get(`/exam/bank/user/${userId}/collections`)
         const collectedBankIds = response.data || []
 
-        // 更新收藏状态
+        // 更新收藏状态 - 对于虚拟ID的题库，暂时标记为未收藏
         const newIsCollected = {}
         this.examBanks.forEach(bank => {
-          newIsCollected[bank.bankId] = collectedBankIds.includes(bank.bankId)
+          // 对于虚拟题库，暂时标记为未收藏
+          newIsCollected[bank.bankId] = collectedBankIds.includes(bank.bankId) || false
         })
         this.isCollected = newIsCollected
       } catch (error) {
@@ -363,6 +339,14 @@ export default {
 
         // 设置加载状态
         this.$set(this.isCollecting, bank.bankId, true)
+
+        // 检查是否是虚拟题库ID（以virtual_开头）
+        if (bank.bankId.startsWith && bank.bankId.startsWith('virtual_')) {
+          // 对于虚拟题库，我们可以创建一个临时的收藏记录或提示用户
+          // 这里我们提示用户该功能暂不支持虚拟题库
+          this.$message.warning('虚拟题库暂不支持收藏功能')
+          return
+        }
 
         if (this.isCollected[bank.bankId]) {
           // 取消收藏
@@ -414,21 +398,25 @@ export default {
     // 开始练习
     async startPractice(bank) {
       try {
-        // 获取该题库（学科）的所有题目
+        // 获取该题库（学科+上传者）的所有题目
         const params = { 
-          subjectId: bank.subjectId, 
-          pageNum: 1, 
-          pageSize: 1000 // 获取所有题目
+          subjectId: bank.subjectId 
         }
-        const response = await request.get('/exam/question/list', { params })
-        let questions = Array.isArray(response.data.list) ? response.data.list : response.data || []
+        
+        // 如果有上传者ID，添加到参数中
+        if (bank.uploaderId) {
+          params.uploaderId = bank.uploaderId
+        }
+        
+        const response = await request.get('/exam/question/by-uploader', { params })
+        let questions = Array.isArray(response.data) ? response.data : response.data || []
         
         if (questions.length === 0) {
           this.$message.warning('该题库暂无题目')
           return
         }
         
-        // 为每个题目获取选项
+        // 为每个题目获取选项（如果还没有获取的话）
         for (let i = 0; i < questions.length; i++) {
           if (!questions[i].options || questions[i].options.length === 0) {
             const detailResponse = await request.get(`/exam/question/${questions[i].id}`)

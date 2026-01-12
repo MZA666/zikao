@@ -3,9 +3,11 @@ package com.example.controller.exam;
 import com.example.common.Result;
 import com.example.entity.exam.*;
 import com.example.service.exam.*;
+import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.annotation.Resource;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -147,6 +149,62 @@ public class ExamController {
         return Result.success(questions);
     }
 
+    // 获取题目统计信息（按学科和上传者分组）
+    @GetMapping("/question/stats-by-uploader")
+    public Result getQuestionStatsByUploader(@RequestParam(required = false) Integer subjectId) {
+        List<Question> questions;
+        if (subjectId != null) {
+            questions = questionService.selectBySubjectId(subjectId);
+        } else {
+            questions = questionService.selectAll(new Question());
+        }
+        
+        // 按学科ID和上传者ID分组统计
+        Map<String, List<Question>> stats = questions.stream()
+            .collect(Collectors.groupingBy(q -> q.getSubjectId() + "_" + (q.getUploaderId() != null ? q.getUploaderId() : "unknown")));
+        
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map.Entry<String, List<Question>> entry : stats.entrySet()) {
+            String[] keys = entry.getKey().split("_", 2);
+            Integer subjId = Integer.parseInt(keys[0]);
+            String uploader = entry.getValue().isEmpty() ? "未知" : 
+                             (entry.getValue().get(0).getUploader() != null ? 
+                              entry.getValue().get(0).getUploader() : 
+                              "系统");
+            Integer uploaderId = entry.getValue().isEmpty() ? null : entry.getValue().get(0).getUploaderId();
+            
+            Map<String, Object> item = new HashMap<>();
+            item.put("subjectId", subjId);
+            item.put("uploader", uploader);
+            item.put("uploaderId", uploaderId);
+            item.put("questionCount", (long)entry.getValue().size());
+            item.put("subjectName", getSubjectName(subjId)); // 获取学科名称
+            result.add(item);
+        }
+        
+        return Result.success(result);
+    }
+
+    // 根据学科ID和上传者ID获取题目
+    @GetMapping("/question/by-uploader")
+    public Result getQuestionsByUploader(@RequestParam Integer subjectId, 
+                                         @RequestParam(required = false) Integer uploaderId) {
+        Question question = new Question();
+        question.setSubjectId(subjectId);
+        if (uploaderId != null) {
+            question.setUploaderId(uploaderId);
+        }
+        List<Question> questions = questionService.selectAll(question);
+        
+        // 为每个题目获取选项
+        for (Question q : questions) {
+            List<QuestionOption> options = optionService.selectByQuestionId(q.getId());
+            q.setOptions(options);
+        }
+        
+        return Result.success(questions);
+    }
+    
     // 获取题目统计信息（按学科分组）
     @GetMapping("/question/stats")
     public Result getQuestionStats(@RequestParam(required = false) Integer subjectId) {
@@ -165,6 +223,13 @@ public class ExamController {
             ));
         
         return Result.success(stats);
+    }
+
+    // 辅助方法：根据学科ID获取学科名称
+    private String getSubjectName(Integer subjectId) {
+        if (subjectId == null) return "未知学科";
+        Subject subject = subjectService.selectById(subjectId);
+        return subject != null ? subject.getName() : "未知学科";
     }
 
     // 生成模拟考试试卷
