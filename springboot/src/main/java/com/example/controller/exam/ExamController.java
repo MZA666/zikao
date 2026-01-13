@@ -344,33 +344,151 @@ public class ExamController {
     
     // 题库收藏相关接口
     @PostMapping("/bank/collection")
-    public Result addBankCollection(@RequestBody ExamBankCollection collection) {
-        // 检查是否已收藏
-        if (examBankCollectionService.isCollected(collection.getUserId(), collection.getBankId())) {
-            return Result.error("已收藏过此题库");
+    public Result addBankCollection(@RequestBody Map<String, Object> collectionData) {
+        try {
+            Integer userId = (Integer) collectionData.get("userId");
+            String bankIdStr = (String) collectionData.get("bankId");
+            String bankName = (String) collectionData.get("bankName");
+            
+            // 安全地提取subjectId和uploaderId
+            Integer subjectId = null;
+            if (collectionData.get("subjectId") != null) {
+                if (collectionData.get("subjectId") instanceof Integer) {
+                    subjectId = (Integer) collectionData.get("subjectId");
+                } else {
+                    subjectId = Integer.valueOf(collectionData.get("subjectId").toString());
+                }
+            }
+            
+            Integer uploaderId = null;
+            if (collectionData.get("uploaderId") != null) {
+                if (collectionData.get("uploaderId") instanceof Integer) {
+                    uploaderId = (Integer) collectionData.get("uploaderId");
+                } else {
+                    uploaderId = Integer.valueOf(collectionData.get("uploaderId").toString());
+                }
+            }
+            
+            System.out.println("Debug: Received collection data - userId:" + userId + ", bankIdStr:" + bankIdStr + ", subjectId:" + subjectId + ", uploaderId:" + uploaderId);
+            
+            // 对于虚拟题库ID，我们需要使用虚拟ID字符串作为标识
+            Integer actualBankId = null;
+            
+            if (bankIdStr != null && !bankIdStr.startsWith("virtual_")) {
+                try {
+                    actualBankId = Integer.valueOf(bankIdStr);
+                } catch (NumberFormatException e) {
+                    return Result.error("无效的题库ID格式");
+                }
+            }
+            
+            ExamBankCollection collection = new ExamBankCollection();
+            collection.setUserId(userId);
+            collection.setBankName(bankName);
+            collection.setSubjectId(subjectId);
+            collection.setUploaderId(uploaderId);
+            
+            System.out.println("Debug: Setting collection data - userId:" + collection.getUserId() + ", subjectId:" + collection.getSubjectId() + ", uploaderId:" + collection.getUploaderId());
+            
+            // 检查是否已收藏（考虑虚拟题库的情况）
+            if (isVirtualBankId(bankIdStr)) {
+                // 对于虚拟题库，检查是否已收藏相同的学科和上传者组合
+                if (examBankCollectionService.isCollectedForVirtualBank(userId, subjectId, uploaderId)) {
+                    return Result.error("已收藏过此题库");
+                }
+            }
+            
+            
+            int result = examBankCollectionService.insert(collection);
+            System.out.println("Debug: Insert result:" + result + ", Collection ID after insert:" + collection.getId());
+            
+            return Result.success("收藏成功");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("收藏失败: " + e.getMessage());
         }
-        examBankCollectionService.insert(collection);
-        return Result.success("收藏成功");
     }
 
     @DeleteMapping("/bank/collection/{userId}/{bankId}")
-    public Result deleteBankCollection(@PathVariable Integer userId, @PathVariable Integer bankId) {
-        examBankCollectionService.deleteByUserIdAndBankId(userId, bankId);
-        return Result.success("取消收藏成功");
+    public Result deleteBankCollection(@PathVariable Integer userId, @PathVariable String bankId) {
+        try {
+            Integer actualBankId = null;
+            if (!bankId.startsWith("virtual_")) {
+                try {
+                    actualBankId = Integer.valueOf(bankId);
+                } catch (NumberFormatException e) {
+                    return Result.error("无效的题库ID格式");
+                }
+            }
+            
+            examBankCollectionService.deleteByUserIdAndBankIdExtended(userId, actualBankId, bankId);
+            return Result.success("取消收藏成功");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("取消收藏失败: " + e.getMessage());
+        }
     }
 
     @GetMapping("/bank/user/{userId}/collections")
     public Result getUserCollectedBanks(@PathVariable Integer userId) {
+        System.out.println("Debug: Getting collections for user ID:" + userId);
         List<ExamBankCollection> collections = examBankCollectionService.selectByUserId(userId);
-        // 返回收藏的题库ID列表
-        List<Integer> bankIds = collections.stream().map(ExamBankCollection::getBankId).collect(Collectors.toList());
-        return Result.success(bankIds);
+        System.out.println("Debug: Found " + collections.size() + " collections");
+        // 返回收藏的完整信息，包括学科ID和上传者ID
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (ExamBankCollection collection : collections) {
+            System.out.println("Debug: Processing collection - id:" + collection.getId() + ", bankName:" + collection.getBankName() + ", subjectId:" + collection.getSubjectId() + ", uploaderId:" + collection.getUploaderId());
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", collection.getId());
+            item.put("userId", collection.getUserId());
+            // 对于虚拟题库，bankId可能为null，所以使用虚拟ID格式
+            if (collection.getSubjectId() != null) {
+                String virtualId = "virtual_" + collection.getSubjectId() + "_" + (collection.getUploaderId() != null ? collection.getUploaderId() : "unknown");
+                item.put("bankId", virtualId);
+            } else {
+                item.put("bankId", collection.getId());
+            }
+            item.put("bankName", collection.getBankName());
+            item.put("subjectId", collection.getSubjectId());
+            item.put("uploaderId", collection.getUploaderId());
+            item.put("collectedTime", collection.getCollectedTime());
+            result.add(item);
+        }
+        System.out.println("Debug: Returning " + result.size() + " items");
+        return Result.success(result);
     }
 
     @GetMapping("/bank/collection/check/{userId}/{bankId}")
-    public Result checkBankCollection(@PathVariable Integer userId, @PathVariable Integer bankId) {
-        boolean isCollected = examBankCollectionService.isCollected(userId, bankId);
+    public Result checkBankCollection(@PathVariable Integer userId, @PathVariable String bankId) {
+        boolean isCollected;
+        if (isVirtualBankId(bankId)) {
+            // 解析虚拟ID获取学科ID和上传者ID
+            String[] parts = bankId.split("_");
+            if (parts.length >= 3) {
+                Integer subjectId = Integer.parseInt(parts[1]);
+                Integer uploaderId = !"unknown".equals(parts[2]) ? Integer.parseInt(parts[2]) : null;
+                isCollected = examBankCollectionService.isCollectedForVirtualBank(userId, subjectId, uploaderId);
+            } else {
+                isCollected = false;
+            }
+        } else {
+            // 对于实际的题库ID，检查是否已收藏（使用虚拟ID逻辑，因为bankId字段已移除）
+            // 尝试解析bankId为虚拟ID格式
+            String[] parts = bankId.split("_");
+            if (parts.length >= 3 && "virtual".equals(parts[0])) {
+                Integer subjectId = Integer.parseInt(parts[1]);
+                Integer uploaderId = !"unknown".equals(parts[2]) ? Integer.parseInt(parts[2]) : null;
+                isCollected = examBankCollectionService.isCollectedForVirtualBank(userId, subjectId, uploaderId);
+            } else {
+                isCollected = false;
+            }
+        }
         return Result.success(isCollected);
+    }
+    
+    // 检查是否为虚拟题库ID
+    private boolean isVirtualBankId(String bankId) {
+        return bankId != null && bankId.startsWith("virtual_");
     }
     
     // 考试记录相关接口

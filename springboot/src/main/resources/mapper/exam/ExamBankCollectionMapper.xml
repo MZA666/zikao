@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.exam.ExamBankCollectionMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.entity.exam.ExamBankCollection">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+
+        <result column="bank_name" property="bankName"/>
+        <result column="subject_id" property="subjectId"/>
+        <result column="uploader_id" property="uploaderId"/>
+        <result column="collected_time" property="collectedTime"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, user_id, bank_name, subject_id, uploader_id, collected_time
+    </sql>
+
+    <insert id="insert" parameterType="com.example.entity.exam.ExamBankCollection" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO exam_bank_collection (user_id, bank_name, subject_id, uploader_id, collected_time)
+        VALUES (#{userId}, #{bankName}, #{subjectId}, #{uploaderId}, NOW())
+    </insert>
+
+    <delete id="deleteById" parameterType="java.lang.Integer">
+        DELETE FROM exam_bank_collection WHERE id = #{id}
+    </delete>
+
+
+
+    <update id="updateById" parameterType="com.example.entity.exam.ExamBankCollection">
+        UPDATE exam_bank_collection
+        SET user_id = #{userId},
+            bank_name = #{bankName},
+            subject_id = #{subjectId},
+            uploader_id = #{uploaderId},
+            collected_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectById" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_bank_collection
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByUserId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_bank_collection
+        WHERE user_id = #{userId}
+        ORDER BY collected_time DESC
+    </select>
+
+
+
+
+    
+    <select id="selectByUserIdAndVirtualBankInfo" parameterType="map" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_bank_collection
+        WHERE user_id = #{userId} AND subject_id = #{subjectId} AND uploader_id = #{uploaderId}
+    </select>
+    
+    <select id="selectByUserIdAndVirtualBankInfoWithNullBankId" parameterType="map" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_bank_collection
+        WHERE user_id = #{userId} AND subject_id = #{subjectId} AND uploader_id = #{uploaderId}
+    </select>
+    
+    <delete id="deleteByUserIdAndVirtualBankInfo" parameterType="map">
+        DELETE FROM exam_bank_collection 
+        WHERE user_id = #{userId} 
+        AND CONCAT('virtual_', subject_id, '_', COALESCE(uploader_id, 'unknown')) = #{bankIdStr}
+    </delete>
+    
+    <delete id="deleteByUserIdAndVirtualBankInfoExtended" parameterType="map">
+        DELETE FROM exam_bank_collection 
+        WHERE user_id = #{userId} AND subject_id = #{subjectId}
+        AND uploader_id = #{uploaderId}
+    </delete>
+    
+    <delete id="deleteByUserIdAndSubjectUploader" parameterType="map">
+        DELETE FROM exam_bank_collection 
+        WHERE user_id = #{userId} AND subject_id = #{subjectId}
+        AND uploader_id = #{uploaderId}
+    </delete>
+
+</mapper>

@@ -18,15 +18,6 @@
           </el-select>
         </el-col>
         <el-col :span="8">
-          <el-select v-model="searchType" placeholder="题目类型" clearable @change="loadCollectedQuestions">
-            <el-option label="单选题" value="SINGLE_CHOICE" />
-            <el-option label="多选题" value="MULTIPLE_CHOICE" />
-            <el-option label="判断题" value="TRUE_FALSE" />
-            <el-option label="填空题" value="FILL_BLANK" />
-            <el-option label="问答题" value="ESSAY" />
-          </el-select>
-        </el-col>
-        <el-col :span="8">
           <el-button type="primary" @click="startPractice">开始练习</el-button>
         </el-col>
       </el-row>
@@ -76,6 +67,43 @@
           </div>
         </div>
       </el-card>
+    </div>
+
+    <!-- 收藏的题库列表 -->
+    <div class="bank-section">
+      <div class="section-header">
+        <h3>收藏的题库</h3>
+      </div>
+      <div class="bank-list">
+        <el-card
+          v-for="bank in collectedBanks"
+          :key="bank.id"
+          class="bank-card"
+          shadow="hover"
+        >
+          <div class="bank-header">
+            <h3 class="bank-name">{{ bank.bankName }}</h3>
+            <div class="bank-actions">
+              <el-button size="small" type="primary" @click="startPracticeFromBank(bank)">开始练习</el-button>
+              <el-button size="small" type="danger" @click="unCollectBank(bank)">取消收藏</el-button>
+            </div>
+          </div>
+          <div class="bank-info">
+            <div class="info-item">
+              <span class="label">学科：</span>
+              <span class="value">{{ getSubjectName(bank.subjectId) }}</span>
+            </div>
+            <div class="info-item" v-if="bank.uploaderId">
+              <span class="label">上传者ID：</span>
+              <span class="value">{{ bank.uploaderId }}</span>
+            </div>
+            <div class="info-item" v-if="bank.collectedTime">
+              <span class="label">收藏时间：</span>
+              <span class="value">{{ formatDate(bank.collectedTime) }}</span>
+            </div>
+          </div>
+        </el-card>
+      </div>
     </div>
 
     <!-- 练习模式弹窗 -->
@@ -209,7 +237,9 @@ export default {
         
         // 获取收藏的题目ID列表
         const collectionResponse = await request.get(`/exam/collection/${userId}`)
-        this.collectedQuestions = collectionResponse.data.map(item => item.questionId)
+        // 确保返回的数据是数组格式
+        const collectionData = Array.isArray(collectionResponse.data) ? collectionResponse.data : collectionResponse.data.list || []
+        this.collectedQuestions = collectionData.map(item => item.questionId)
         
         if (this.collectedQuestions.length === 0) {
           this.collectedQuestionsWithDetails = []
@@ -240,13 +270,25 @@ export default {
     // 加载收藏的题库
     async loadCollectedBanks() {
       try {
-        const userId = localStorage.getItem('userId')
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+          try {
+            const systemUser = JSON.parse(localStorage.getItem('system-user'));
+            userId = systemUser?.userId;
+          } catch (e) {
+            console.error('解析用户信息失败:', e);
+          }
+        }
+        console.log('当前用户ID:', userId);
         if (!userId) {
           return
         }
         
         const response = await request.get(`/exam/bank/user/${userId}/collections`)
-        this.collectedBanks = response.data || []
+        console.log('收藏题库接口返回数据:', response);
+        // 确保返回的数据是数组格式
+        this.collectedBanks = Array.isArray(response.data) ? response.data : response.data || []
+        console.log('处理后的收藏题库数据:', this.collectedBanks);
       } catch (error) {
         console.error('加载收藏题库失败:', error)
       }
@@ -255,7 +297,15 @@ export default {
     // 取消收藏题目
     async unCollectQuestion(questionId) {
       try {
-        const userId = localStorage.getItem('userId')
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+          try {
+            const systemUser = JSON.parse(localStorage.getItem('system-user'));
+            userId = systemUser?.userId;
+          } catch (e) {
+            console.error('解析用户信息失败:', e);
+          }
+        }
         if (!userId) {
           this.$message.error('请先登录')
           return
@@ -267,6 +317,39 @@ export default {
         this.loadCollectedQuestions()
       } catch (error) {
         console.error('取消收藏失败:', error)
+        this.$message.error('操作失败')
+      }
+    },
+    
+    // 取消收藏题库
+    async unCollectBank(bank) {
+      try {
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+          try {
+            const systemUser = JSON.parse(localStorage.getItem('system-user'));
+            userId = systemUser?.userId;
+          } catch (e) {
+            console.error('解析用户信息失败:', e);
+          }
+        }
+        if (!userId) {
+          this.$message.error('请先登录')
+          return
+        }
+        
+        // 处理虚拟ID的编码问题
+        const encodedBankId = encodeURIComponent(bank.bankId || bank.id);
+        const response = await request.delete(`/exam/bank/collection/${userId}/${encodedBankId}`)
+        if (response.code === 200) {
+          this.$message.success('已取消收藏')
+          // 重新加载收藏列表
+          this.loadCollectedBanks()
+        } else {
+          this.$message.error(response.msg || '取消收藏失败')
+        }
+      } catch (error) {
+        console.error('取消收藏题库失败:', error)
         this.$message.error('操作失败')
       }
     },
@@ -287,6 +370,52 @@ export default {
     getSubjectName(subjectId) {
       const subject = this.subjects.find(s => s.id === subjectId)
       return subject ? subject.name : ''
+    },
+    
+    // 格式化日期
+    formatDate(date) {
+      if (!date) return '未知'
+      const d = new Date(date)
+      return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`
+    },
+    
+    // 从题库开始练习
+    async startPracticeFromBank(bank) {
+      try {
+        // 获取该题库（学科+上传者）的所有题目
+        const params = { 
+          subjectId: bank.subjectId 
+        }
+        
+        // 如果有上传者ID，添加到参数中
+        if (bank.uploaderId) {
+          params.uploaderId = bank.uploaderId
+        }
+        
+        const response = await request.get('/exam/question/by-uploader', { params })
+        let questions = Array.isArray(response.data) ? response.data : response.data || []
+        
+        if (questions.length === 0) {
+          this.$message.warning('该题库暂无题目')
+          return
+        }
+        
+        // 为每个题目获取选项（如果还没有获取的话）
+        for (let i = 0; i < questions.length; i++) {
+          if (!questions[i].options || questions[i].options.length === 0) {
+            const detailResponse = await request.get(`/exam/question/${questions[i].id}`)
+            questions[i].options = detailResponse.data?.options || []
+          }
+        }
+        
+        this.currentPracticeQuestions = questions
+        this.currentQuestionIndex = 0
+        this.userAnswers = new Array(questions.length).fill('')
+        this.practiceDialogVisible = true
+      } catch (error) {
+        console.error('获取题目失败:', error)
+        this.$message.error('获取题目失败')
+      }
     },
     
     // 开始练习（随机选择收藏的题目）
@@ -468,5 +597,84 @@ export default {
 
 .practice-actions .el-button {
   margin: 0 10px;
+}
+
+.empty-message {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.bank-section {
+  margin-top: 30px;
+}
+
+.section-header {
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e4e7ed;
+}
+
+.section-header h3 {
+  margin: 0;
+  color: #303133;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.bank-card {
+  margin-bottom: 20px;
+}
+
+.bank-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.bank-name {
+  margin: 0;
+  color: #303133;
+  font-size: 18px;
+}
+
+.bank-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.bank-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.info-item {
+  display: flex;
+}
+
+.label {
+  font-weight: bold;
+  color: #606266;
+  min-width: 80px;
+}
+
+.value {
+  flex: 1;
+  color: #303133;
+}
+
+.tab-content {
+  margin-top: 20px;
+}
+
+.empty-message {
+  text-align: center;
+  padding: 40px;
+  color: #999;
 }
 </style>

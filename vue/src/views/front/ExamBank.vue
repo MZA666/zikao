@@ -312,15 +312,21 @@ export default {
         const userId = localStorage.getItem('userId') || JSON.parse(localStorage.getItem('system-user')).userId
         if (!userId) return
 
-        // 获取用户收藏的题库ID列表
+        // 获取用户收藏的题库信息
         const response = await request.get(`/exam/bank/user/${userId}/collections`)
-        const collectedBankIds = response.data || []
+        const collectedBanks = response.data || []
 
-        // 更新收藏状态 - 对于虚拟ID的题库，暂时标记为未收藏
+        // 更新收藏状态 - 根据返回的详细信息处理
         const newIsCollected = {}
         this.examBanks.forEach(bank => {
-          // 对于虚拟题库，暂时标记为未收藏
-          newIsCollected[bank.bankId] = collectedBankIds.includes(bank.bankId) || false
+          // 检查是否在收藏列表中
+          const isCollected = collectedBanks.some(collectedBank => {
+            return collectedBank.bankId === bank.bankId
+          })
+          // 为虚拟题库或实际题库设置收藏状态
+          if (bank.bankId) {
+            newIsCollected[bank.bankId] = isCollected
+          }
         })
         this.isCollected = newIsCollected
       } catch (error) {
@@ -338,22 +344,14 @@ export default {
         }
 
         // 设置加载状态
-        this.$set(this.isCollecting, bank.bankId, true)
-
-        // 检查是否是虚拟题库ID（以virtual_开头）
-        if (bank.bankId.startsWith && bank.bankId.startsWith('virtual_')) {
-          // 对于虚拟题库，我们可以创建一个临时的收藏记录或提示用户
-          // 这里我们提示用户该功能暂不支持虚拟题库
-          this.$message.warning('虚拟题库暂不支持收藏功能')
-          return
-        }
+        this.isCollecting[bank.bankId] = true
 
         if (this.isCollected[bank.bankId]) {
           // 取消收藏
           const response = await request.delete(`/exam/bank/collection/${userId}/${bank.bankId}`)
           if (response.code === 200) {
             this.$message.success('已取消收藏')
-            this.$set(this.isCollected, bank.bankId, false)
+            this.isCollected[bank.bankId] = false
           } else {
             this.$message.error(response.msg || '取消收藏失败')
           }
@@ -363,12 +361,33 @@ export default {
             userId: parseInt(userId),
             bankId: bank.bankId,
             bankName: bank.bankName,
-            subjectId: bank.subjectId
+            subjectId: bank.subjectId,
+            uploaderId: bank.uploaderId || null
           }
+          
+          // 如果是虚拟题库ID，解析学科ID和上传者ID
+          if (bank.bankId.startsWith && bank.bankId.startsWith('virtual_')) {
+            const parts = bank.bankId.split('_')
+            if (parts.length >= 3) {
+              try {
+                collectionData.subjectId = parseInt(parts[1])
+                collectionData.uploaderId = parts[2] !== 'unknown' ? parseInt(parts[2]) : null
+              } catch (error) {
+                console.error('解析虚拟题库ID失败:', error)
+                this.$message.error('虚拟题库ID格式错误')
+                return
+              }
+            }
+          } else {
+            // 对于实际的题库ID，确保学科ID和上传者ID已设置
+            collectionData.subjectId = bank.subjectId
+            collectionData.uploaderId = bank.uploaderId || null
+          }
+          
           const response = await request.post('/exam/bank/collection', collectionData)
           if (response.code === 200) {
             this.$message.success('收藏成功')
-            this.$set(this.isCollected, bank.bankId, true)
+            this.isCollected[bank.bankId] = true
           } else {
             this.$message.error(response.msg || '收藏失败')
           }
@@ -378,7 +397,7 @@ export default {
         this.$message.error('收藏操作失败')
       } finally {
         // 清除加载状态
-        this.$set(this.isCollecting, bank.bankId, false)
+        this.isCollecting[bank.bankId] = false
       }
     },
     
@@ -497,6 +516,8 @@ export default {
     }
   }
 }
+
+
 </script>
 
 <style scoped>
