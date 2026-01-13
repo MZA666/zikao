@@ -75,4 +75,9 @@ public interface QuestionMapper {
                                                           @Param("type") String type, 
                                                           @Param("difficulty") String difficulty, 
                                                           @Param("limit") Integer limit);
+
+    /**
+     * 根据ID列表查询题目
+     */
+    List<Question> selectByIds(@Param("ids") List<Integer> ids);
 }

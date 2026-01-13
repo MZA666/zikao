@@ -166,7 +166,12 @@ export default {
           pageSize: this.pageSize
         }
         
-        const response = await request.get('/exam/record/user/' + userId, { params })
+        const response = await request.get('/exam/record/user/' + userId, { 
+          params: {
+            pageNum: this.currentPage,
+            pageSize: this.pageSize
+          }
+        })
         this.examRecords = Array.isArray(response.data.list) ? response.data.list : response.data
         this.total = response.data.total || this.examRecords.length
       } catch (error) {

@@ -40,6 +40,18 @@ public interface ExamRecordMapper {
     List<ExamRecord> selectByUserId(@Param("userId") Integer userId);
 
     /**
+     * 根据用户ID分页查询考试记录
+     */
+    List<ExamRecord> selectByUserIdWithPaging(@Param("userId") Integer userId, 
+                                           @Param("offset") int offset, 
+                                           @Param("limit") int limit);
+
+    /**
+     * 根据用户ID查询考试记录总数
+     */
+    int countByUserId(@Param("userId") Integer userId);
+
+    /**
      * 根据学科ID查询考试记录
      */
     List<ExamRecord> selectBySubjectId(@Param("subjectId") Integer subjectId);

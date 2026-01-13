@@ -2,6 +2,8 @@ package com.example.service.exam;
 
 import com.example.entity.exam.ExamRecord;
 import com.example.mapper.exam.ExamRecordMapper;
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.Resource;
@@ -44,6 +46,23 @@ public class ExamRecordServiceImpl implements ExamRecordService {
     @Override
     public List<ExamRecord> selectByUserId(Integer userId) {
         return examRecordMapper.selectByUserId(userId);
+    }
+
+    @Override
+    public List<ExamRecord> selectByUserIdWithPaging(Integer userId, int offset, int limit) {
+        return examRecordMapper.selectByUserIdWithPaging(userId, offset, limit);
+    }
+
+    @Override
+    public int countByUserId(Integer userId) {
+        return examRecordMapper.countByUserId(userId);
+    }
+
+    @Override
+    public PageInfo<ExamRecord> selectByUserIdWithPage(Integer userId, Integer pageNum, Integer pageSize) {
+        PageHelper.startPage(pageNum, pageSize);
+        List<ExamRecord> records = examRecordMapper.selectByUserId(userId);
+        return PageInfo.of(records);
     }
 
     @Override

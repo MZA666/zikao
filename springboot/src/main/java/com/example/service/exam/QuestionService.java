@@ -59,4 +59,9 @@ public interface QuestionService {
      * 查询包含选项的题目
      */
     Question selectQuestionWithOptions(Integer id);
+
+    /**
+     * 根据ID列表查询题目
+     */
+    List<Question> selectByIds(List<Integer> ids);
 }

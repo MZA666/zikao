@@ -47,4 +47,19 @@ public interface ExamRecordService {
      * 根据日期范围查询考试记录
      */
     List<ExamRecord> selectByDateRange(String startDate, String endDate);
+
+    /**
+     * 根据用户ID分页查询考试记录
+     */
+    List<ExamRecord> selectByUserIdWithPaging(Integer userId, int offset, int limit);
+
+    /**
+     * 根据用户ID查询考试记录总数
+     */
+    int countByUserId(Integer userId);
+
+    /**
+     * 根据用户ID分页查询考试记录（使用PageInfo）
+     */
+    com.github.pagehelper.PageInfo<ExamRecord> selectByUserIdWithPage(Integer userId, Integer pageNum, Integer pageSize);
 }

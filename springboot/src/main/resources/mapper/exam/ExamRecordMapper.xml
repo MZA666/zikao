@@ -90,4 +90,18 @@
         ORDER BY exam_time DESC
     </select>
 
+    <select id="selectByUserIdWithPaging" parameterType="map" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_record
+        WHERE user_id = #{userId}
+        ORDER BY exam_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countByUserId" parameterType="java.lang.Integer" resultType="int">
+        SELECT COUNT(*)
+        FROM exam_record
+        WHERE user_id = #{userId}
+    </select>
+
 </mapper>

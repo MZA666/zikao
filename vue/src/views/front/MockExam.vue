@@ -213,9 +213,120 @@ export default {
     async loadSubjects() {
       try {
         const response = await request.get('/exam/subject/list')
-        this.subjects = response.data
+        let allSubjects = response.data
+        
+        // 获取当前用户ID
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+          try {
+            const systemUser = JSON.parse(localStorage.getItem('system-user'));
+            userId = systemUser?.userId;
+          } catch (e) {
+            console.error('解析用户信息失败:', e);
+          }
+        }
+        
+        if (userId) {
+          // 获取用户收藏的题库信息
+          const collectionResponse = await request.get(`/exam/bank/user/${userId}/collections`)
+          const collectionData = Array.isArray(collectionResponse.data) ? collectionResponse.data : collectionResponse.data.list || []
+          
+          if (collectionData.length > 0) {
+            // 获取收藏题库涉及的学科ID
+            const collectedSubjectIds = [...new Set(collectionData.map(item => item.subjectId))].filter(id => id !== undefined && id !== null);
+            
+            // 只显示收藏题库涉及的学科
+            this.subjects = allSubjects.filter(subject => 
+              collectedSubjectIds.includes(subject.id)
+            )
+          } else {
+            // 如果没有收藏题库，显示空数组
+            this.subjects = []
+          }
+        } else {
+          // 如果未登录，显示所有学科
+          this.subjects = allSubjects
+        }
       } catch (error) {
         console.error('加载学科列表失败:', error)
+        // 发生错误时，回退到显示所有学科
+        try {
+          const response = await request.get('/exam/subject/list')
+          this.subjects = response.data
+        } catch (fallbackError) {
+          console.error('加载所有学科失败:', fallbackError)
+          this.subjects = []
+        }
+      }
+    },
+    
+    // 获取收藏题库中的题目
+    async getCollectedQuestions(subjectId) {
+      try {
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+          try {
+            const systemUser = JSON.parse(localStorage.getItem('system-user'));
+            userId = systemUser?.userId;
+          } catch (e) {
+            console.error('解析用户信息失败:', e);
+          }
+        }
+        
+        if (!userId) {
+          this.$message.error('请先登录')
+          return []
+        }
+        
+        // 获取用户收藏的题库
+        const collectionResponse = await request.get(`/exam/bank/user/${userId}/collections`)
+        const collectionData = Array.isArray(collectionResponse.data) ? collectionResponse.data : collectionResponse.data.list || []
+        
+        // 过滤出指定学科的收藏题库
+        const subjectCollections = collectionData.filter(item => item.subjectId == subjectId)
+        
+        if (subjectCollections.length === 0) {
+          return []
+        }
+        
+        // 获取收藏题库的上传者ID
+        const uploaderIds = [...new Set(subjectCollections.map(item => item.uploaderId))].filter(id => id !== undefined && id !== null);
+        
+        if (uploaderIds.length === 0) {
+          // 如果没有有效的上传者ID，则获取该学科的所有题目
+          const params = { subjectId: subjectId };
+          const questionResponse = await request.get('/exam/question/list', { params });
+          const questions = Array.isArray(questionResponse.data.list) ? questionResponse.data.list : questionResponse.data;
+          return questions.filter(question => question.subjectId == subjectId);
+        }
+        
+        // 通过多个上传者ID获取题目
+        let allQuestions = [];
+        for (const uploaderId of uploaderIds) {
+          const params = { 
+            subjectId: subjectId,
+            uploaderId: uploaderId
+          };
+          
+          const questionResponse = await request.get('/exam/question/list', { params });
+          const questions = Array.isArray(questionResponse.data.list) ? questionResponse.data.list : questionResponse.data;
+          allQuestions = allQuestions.concat(questions);
+        }
+        
+        // 返回去重后的题目
+        const uniqueQuestions = [];
+        const seenIds = new Set();
+        for (const question of allQuestions) {
+          if (!seenIds.has(question.id)) {
+            seenIds.add(question.id);
+            uniqueQuestions.push(question);
+          }
+        }
+        
+        return uniqueQuestions;
+      } catch (error) {
+        console.error('获取收藏题库题目失败:', error)
+        return []
       }
     },
     
@@ -227,19 +338,40 @@ export default {
       }
       
       try {
-        // 根据配置生成考试题目
-        const params = {
-          subjectId: this.examConfig.subjectId,
-          questionCount: this.examConfig.questionCount,
-          questionTypes: this.examConfig.questionTypes.join(','),
-          difficulty: this.examConfig.difficulty // 添加难度参数
+        // 获取用户收藏的题库中的题目
+        const collectedQuestions = await this.getCollectedQuestions(this.examConfig.subjectId)
+        
+        if (collectedQuestions.length === 0) {
+          this.$message.warning('该学科下没有收藏的题库')
+          return
         }
         
-        const response = await request.post('/exam/paper/generate', {}, { params })
-        this.examQuestions = response.data
+        // 根据配置过滤题目
+        let filteredQuestions = collectedQuestions.filter(question => {
+          // 检查题目类型
+          const typeMatch = this.examConfig.questionTypes.includes(question.type)
+          
+          // 检查难度
+          let difficultyMatch = true
+          if (this.examConfig.difficulty) {
+            difficultyMatch = question.difficulty === this.examConfig.difficulty
+          }
+          
+          return typeMatch && difficultyMatch
+        })
+        
+        if (filteredQuestions.length === 0) {
+          this.$message.warning('没有找到符合筛选条件的收藏题库中的题目')
+          return
+        }
+        
+        // 随机选择指定数量的题目
+        const selectedQuestions = this.getRandomQuestions(filteredQuestions, this.examConfig.questionCount)
+        
+        this.examQuestions = selectedQuestions
         
         if (this.examQuestions.length === 0) {
-          this.$message.warning('该学科下没有找到符合条件的题目')
+          this.$message.warning('该学科下没有找到符合条件的收藏题库中的题目')
           return
         }
         
@@ -258,7 +390,7 @@ export default {
         // 设置考试信息
         const subject = this.subjects.find(s => s.id === this.examConfig.subjectId)
         this.currentExamPaper = {
-          name: subject.name + '模拟考试',
+          name: subject.name + '收藏题库模拟考试',
           subjectId: this.examConfig.subjectId,
           duration: this.examConfig.duration,
           totalQuestions: this.examQuestions.length
@@ -267,6 +399,16 @@ export default {
         console.error('开始考试失败:', error)
         this.$message.error('开始考试失败')
       }
+    },
+    
+    // 随机选择指定数量的题目
+    getRandomQuestions(questions, count) {
+      if (questions.length <= count) {
+        return questions
+      }
+      
+      const shuffled = [...questions].sort(() => 0.5 - Math.random())
+      return shuffled.slice(0, count)
     },
     
     // 开始计时
@@ -354,26 +496,46 @@ export default {
     // 保存考试记录
     async saveExamRecord() {
       try {
-        const userId = localStorage.getItem('userId') || JSON.parse(localStorage.getItem('system-user')).userId
-        if (!userId) return
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+          try {
+            const systemUser = JSON.parse(localStorage.getItem('system-user'));
+            userId = systemUser?.userId;
+          } catch (e) {
+            console.error('解析用户信息失败:', e);
+            return;
+          }
+        }
+        if (!userId) {
+          this.$message.error('请先登录');
+          return;
+        }
         
         const examRecord = {
           userId: parseInt(userId),
-          username: JSON.parse(localStorage.getItem('system-user')).name,
+          username: JSON.parse(localStorage.getItem('system-user'))?.name || '',
           paperId: 0, // 暂时没有实际试卷ID
-          paperName: this.currentExamPaper.name,
+          paperName: this.currentExamPaper.name || '模拟考试',
           subjectId: this.currentExamPaper.subjectId,
-          subjectName: this.subjects.find(s => s.id === this.currentExamPaper.subjectId)?.name,
+          subjectName: this.subjects.find(s => s.id === this.currentExamPaper.subjectId)?.name || '',
           score: this.score,
           totalScore: this.totalScore,
           accuracy: Math.round((this.score / this.totalScore) * 100),
           duration: this.usedTime,
-          examTime: new Date()
+          examTime: new Date().toISOString()
         }
         
-        await request.post('/exam/record', examRecord)
+        console.log('保存考试记录:', examRecord);
+        const response = await request.post('/exam/record', examRecord);
+        console.log('保存考试记录响应:', response);
+        if (response.code === 200) {
+          this.$message.success('考试记录保存成功');
+        } else {
+          this.$message.error('考试记录保存失败: ' + response.msg);
+        }
       } catch (error) {
-        console.error('保存考试记录失败:', error)
+        console.error('保存考试记录失败:', error);
+        this.$message.error('保存考试记录失败: ' + error.message);
       }
     },
     

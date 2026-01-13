@@ -79,6 +79,11 @@ public class QuestionServiceImpl implements QuestionService {
         return question;
     }
 
+    @Override
+    public List<Question> selectByIds(List<Integer> ids) {
+        return questionMapper.selectByIds(ids);
+    }
+
     /**
      * 插入题目及其选项
      */

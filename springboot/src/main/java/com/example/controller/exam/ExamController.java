@@ -523,9 +523,20 @@ public class ExamController {
     }
 
     @GetMapping("/record/user/{userId}")
-    public Result getExamRecordByUser(@PathVariable Integer userId) {
-        List<ExamRecord> examRecords = examRecordService.selectByUserId(userId);
-        return Result.success(examRecords);
+    public Result getExamRecordByUser(@PathVariable Integer userId, 
+                                      @RequestParam(defaultValue = "1") Integer pageNum,
+                                      @RequestParam(defaultValue = "10") Integer pageSize) {
+        // 使用PageInfo进行分页查询
+        com.github.pagehelper.PageInfo<ExamRecord> pageInfo = examRecordService.selectByUserIdWithPage(userId, pageNum, pageSize);
+        
+        // 构造带分页信息的结果
+        Map<String, Object> result = new HashMap<>();
+        result.put("list", pageInfo.getList());
+        result.put("total", (int) pageInfo.getTotal());
+        result.put("pageNum", pageInfo.getPageNum());
+        result.put("pageSize", pageInfo.getPageSize());
+        
+        return Result.success(result);
     }
 
     @GetMapping("/record/subject/{subjectId}")
@@ -594,5 +605,19 @@ public class ExamController {
         }
         
         return Result.success(banks);
+    }
+    
+    // 根据ID列表获取题目
+    @GetMapping("/question/listByIds")
+    public Result getQuestionsByIds(@RequestParam(value = "ids") List<Integer> ids) {
+        List<Question> questions = questionService.selectByIds(ids);
+        
+        // 为每个题目获取选项
+        for (Question q : questions) {
+            List<QuestionOption> options = optionService.selectByQuestionId(q.getId());
+            q.setOptions(options);
+        }
+        
+        return Result.success(questions);
     }
 }
