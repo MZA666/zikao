@@ -4,26 +4,7 @@
       <h2>学习空间</h2>
     </div>
 
-    <!-- 搜索和筛选区域 -->
-    <div class="filter-section">
-      <el-row :gutter="20">
-        <el-col :span="8">
-          <el-select v-model="searchSubjectId" placeholder="选择学科" clearable @change="loadCollectedQuestions">
-            <el-option
-              v-for="subject in subjects"
-              :key="subject.id"
-              :label="subject.name"
-              :value="subject.id"
-            />
-          </el-select>
-        </el-col>
-        <el-col :span="8">
-          <el-button type="primary" @click="startPractice">开始练习</el-button>
-        </el-col>
-      </el-row>
-    </div>
-
-    <!-- 收藏的题目列表 -->
+      <!-- 收藏的题目列表 -->
     <div class="question-list">
       <el-card
         v-for="item in collectedQuestionsWithDetails"
@@ -74,9 +55,31 @@
       <div class="section-header">
         <h3>收藏的题库</h3>
       </div>
+      <div class="filter-section">
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-select v-model="searchBankSubjectId" placeholder="选择学科" clearable @change="filterCollectedBanks">
+              <el-option
+                v-for="subject in subjects"
+                :key="subject.id"
+                :label="subject.name"
+                :value="subject.id"
+              />
+            </el-select>
+          </el-col>
+          <el-col :span="16">
+            <el-input
+              v-model="searchBankName"
+              placeholder="搜索题库名称"
+              clearable
+              @input="filterCollectedBanks"
+            />
+          </el-col>
+        </el-row>
+      </div>
       <div class="bank-list">
         <el-card
-          v-for="bank in collectedBanks"
+          v-for="bank in filteredCollectedBanks"
           :key="bank.id"
           class="bank-card"
           shadow="hover"
@@ -84,7 +87,7 @@
           <div class="bank-header">
             <h3 class="bank-name">{{ bank.bankName }}</h3>
             <div class="bank-actions">
-              <el-button size="small" type="primary" @click="startPracticeFromBank(bank)">开始练习</el-button>
+              <el-button size="small" type="primary" @click="startPracticeFromBank(bank)">练习</el-button>
               <el-button size="small" type="danger" @click="unCollectBank(bank)">取消收藏</el-button>
             </div>
           </div>
@@ -198,7 +201,10 @@ export default {
       userAnswers: [],
       collectedQuestionsWithDetails: [], // 包含题目详情的收藏列表
       // 添加收藏题库的相关数据
-      collectedBanks: [] // 收藏的题库列表
+      collectedBanks: [], // 收藏的题库列表
+      searchBankSubjectId: '',
+      searchBankName: '',
+      filteredCollectedBanks: []
     }
   },
   computed: {
@@ -214,6 +220,22 @@ export default {
     this.loadCollectedQuestions()
     // 加载收藏的题库
     this.loadCollectedBanks()
+  },
+  computed: {
+    currentPracticeQuestion() {
+      return this.currentPracticeQuestions[this.currentQuestionIndex] || {}
+    },
+    getProgressPercentage() {
+      return Math.round(((this.currentQuestionIndex + 1) / this.currentPracticeQuestions.length) * 100)
+    }
+  },
+  watch: {
+    collectedBanks: {
+      handler() {
+        this.filterCollectedBanks()
+      },
+      deep: true
+    }
   },
   methods: {
     // 加载学科列表
@@ -289,6 +311,9 @@ export default {
         // 确保返回的数据是数组格式
         this.collectedBanks = Array.isArray(response.data) ? response.data : response.data || []
         console.log('处理后的收藏题库数据:', this.collectedBanks);
+        
+        // 过滤收藏的题库
+        this.filterCollectedBanks()
       } catch (error) {
         console.error('加载收藏题库失败:', error)
       }
@@ -481,6 +506,16 @@ export default {
       this.currentPracticeQuestions = []
       this.currentQuestionIndex = 0
       this.userAnswers = []
+    },
+    
+    // 过滤收藏的题库
+    filterCollectedBanks() {
+      this.filteredCollectedBanks = this.collectedBanks.filter(bank => {
+        const matchesSubject = !this.searchBankSubjectId || bank.subjectId == this.searchBankSubjectId
+        const matchesName = !this.searchBankName || 
+                           (bank.bankName && bank.bankName.toLowerCase().includes(this.searchBankName.toLowerCase()))
+        return matchesSubject && matchesName
+      })
     }
   }
 }
