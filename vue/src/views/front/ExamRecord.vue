@@ -82,6 +82,20 @@
               <span class="question-num">{{ index + 1 }}.</span>
               <span class="question-content">{{ answer.questionContent }}</span>
             </div>
+             <!-- 显示题目选项 -->
+            <div class="question-options" v-if="getQuestionOptions(answer.questionId).length > 0">
+              <div 
+                v-for="option in getQuestionOptions(answer.questionId)" 
+                :key="option.id"
+                class="option-item"
+                :class="{ 
+                  'user-selected': isUserSelected(answer, option.optionKey),
+                  'correct-option': option.isCorrect 
+                }"
+              >
+                <strong>{{ option.optionKey }}.</strong> {{ option.content }}
+              </div>
+            </div>
             <div class="answer-detail">
               <p><strong>我的答案：</strong>{{ answer.userAnswer || '未作答' }}</p>
               <p><strong>正确答案：</strong>{{ answer.correctAnswer }}</p>
@@ -109,13 +123,31 @@
           <p>得分：{{ selectedRecord.score }} / {{ selectedRecord.totalScore }} ({{ selectedRecord.accuracy }}%)</p>
         </div>
         
+        <div class="review-controls" v-if="selectedRecord.answers && selectedRecord.answers.length > 0">
+          <el-checkbox v-model="wrongOnly" @change="handleWrongOnlyChange">只显示错题</el-checkbox>
+        </div>
         <div class="review-questions" v-if="selectedRecord.answers && selectedRecord.answers.length > 0">
           <div
-            v-for="(answer, index) in selectedRecord.answers"
+            v-for="(answer, index) in filteredAnswers"
             :key="index"
             class="review-question"
+            :class="{ 'wrong-answer': !isCorrect(answer) }"
           >
-            <h4>{{ index + 1 }}. {{ answer.questionContent }}</h4>
+            <h4>{{ getQuestionNumber(index) }}. {{ answer.questionContent }}</h4>
+            <!-- 显示题目选项 -->
+            <div class="question-options" v-if="getQuestionOptions(answer.questionId).length > 0">
+              <div 
+                v-for="option in getQuestionOptions(answer.questionId)" 
+                :key="option.id"
+                class="option-item"
+                :class="{ 
+                  'user-selected': isUserSelected(answer, option.optionKey),
+                  'correct-option': option.isCorrect 
+                }"
+              >
+                <strong>{{ option.optionKey }}.</strong> {{ option.content }}
+              </div>
+            </div>
             <div class="review-answer">
               <p><strong>我的答案：</strong>{{ answer.userAnswer || '未作答' }}</p>
               <p><strong>正确答案：</strong>{{ answer.correctAnswer }}</p>
@@ -144,7 +176,18 @@ export default {
       total: 0,
       detailDialogVisible: false,
       reviewDialogVisible: false,
-      selectedRecord: null
+      wrongOnly: false,  // 是否只显示错题
+      selectedRecord: null,
+      questionOptions: {} // 缓存题目选项
+    }
+  },
+  computed: {
+    // 根据wrongOnly标志过滤答案
+    filteredAnswers() {
+      if (!this.wrongOnly || !this.selectedRecord || !this.selectedRecord.answers) {
+        return this.selectedRecord && this.selectedRecord.answers ? this.selectedRecord.answers : [];
+      }
+      return this.selectedRecord.answers.filter(answer => !this.isCorrect(answer));
     }
   },
   created() {
@@ -181,15 +224,76 @@ export default {
     },
     
     // 查看记录详情
-    viewRecord(record) {
+    async viewRecord(record) {
       this.selectedRecord = record
+      // 为每道题加载选项
+      if (record.answers) {
+        for (const answer of record.answers) {
+          await this.loadQuestionOptions(answer.questionId);
+        }
+      }
       this.detailDialogVisible = true
     },
     
     // 回顾考试
-    reviewExam(record) {
+    async reviewExam(record) {
       this.selectedRecord = record
+      // 为每道题加载选项
+      if (record.answers) {
+        for (const answer of record.answers) {
+          await this.loadQuestionOptions(answer.questionId);
+        }
+      }
       this.reviewDialogVisible = true
+    },
+    
+    // 加载题目选项
+    async loadQuestionOptions(questionId) {
+      console.log('正在加载题目选项，题目ID:', questionId);
+      if (!this.questionOptions[questionId]) {
+        try {
+          const response = await request.get(`/exam/question/options/${questionId}`);
+          console.log(`题目${questionId}的选项数据:`, response.data);
+          this.questionOptions[questionId] = response.data;
+        } catch (error) {
+          console.error(`加载题目${questionId}的选项失败:`, error);
+          this.questionOptions[questionId] = [];
+        }
+      } else {
+        console.log(`题目${questionId}的选项已缓存`);
+      }
+    },
+    
+    // 获取题目选项
+    getQuestionOptions(questionId) {
+      if (!questionId) {
+        console.log('题目ID为空，返回空数组');
+        return [];
+      }
+      const options = this.questionOptions[questionId] || [];
+      console.log(`获取题目${questionId}的选项，选项数量:`, options.length);
+      return options;
+    },
+    
+    // 检查用户是否选择了某个选项
+    isUserSelected(answer, optionKey) {
+      console.log('检查用户选择，answer:', answer, 'optionKey:', optionKey);
+      if (!answer || !answer.userAnswer || !optionKey) {
+        console.log('答案或选项键为空');
+        return false;
+      }
+      
+      // 如果是多选题，userAnswer可能是数组
+      if (Array.isArray(answer.userAnswer)) {
+        const isSelected = answer.userAnswer.includes(optionKey);
+        console.log(`多选题，用户选择: ${answer.userAnswer}, 检查选项${optionKey}，结果: ${isSelected}`);
+        return isSelected;
+      } else {
+        // 单选题或字符串形式的答案
+        const isSelected = String(answer.userAnswer).includes(optionKey);
+        console.log(`单选题，用户答案: ${answer.userAnswer}, 检查选项${optionKey}，结果: ${isSelected}`);
+        return isSelected;
+      }
     },
     
     // 关闭详情对话框
@@ -202,6 +306,44 @@ export default {
     closeReviewDialog() {
       this.reviewDialogVisible = false
       this.selectedRecord = null
+    },
+    
+    // 判断答案是否正确
+    isCorrect(answer) {
+      if (!answer.userAnswer || !answer.correctAnswer) {
+        return false;
+      }
+      // 处理多选题，比较排序后的选项
+      const userAnswer = Array.isArray(answer.userAnswer) ? 
+        answer.userAnswer.sort().join('') : 
+        String(answer.userAnswer).split('').sort().join('');
+      const correctAnswer = Array.isArray(answer.correctAnswer) ? 
+        answer.correctAnswer.sort().join('') : 
+        String(answer.correctAnswer).split('').sort().join('');
+      
+      return userAnswer === correctAnswer;
+    },
+    
+    // 获取题目编号（考虑过滤后的情况）
+    getQuestionNumber(index) {
+      if (!this.wrongOnly) {
+        // 如果不是只显示错题，则返回原始索引+1
+        return index + 1;
+      } else {
+        // 如果是只显示错题，则计算这是第几道错题
+        const wrongAnswers = this.selectedRecord.answers.filter(ans => !this.isCorrect(ans));
+        if (wrongAnswers[index]) {
+          // 找到原数组中的位置
+          const originalIndex = this.selectedRecord.answers.indexOf(wrongAnswers[index]);
+          return originalIndex + 1;
+        }
+        return index + 1;
+      }
+    },
+    
+    // 处理错题筛选变化
+    handleWrongOnlyChange() {
+      // 当筛选条件改变时不需要额外操作，因为computed会自动更新
     },
     
     // 格式化日期
@@ -337,6 +479,40 @@ export default {
 .answer-detail p, .review-answer p {
   margin: 5px 0;
   line-height: 1.5;
+}
+
+.question-options {
+  margin: 10px 0;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.option-item {
+  padding: 5px 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.option-item strong {
+  margin-right: 8px;
+  min-width: 20px;
+}
+
+.option-item.user-selected {
+  background-color: #e6f7ff;
+  border-left: 3px solid #1890ff;
+  padding-left: 12px;
+}
+
+.option-item.correct-option {
+  background-color: #f6ffed;
+  border-left: 3px solid #52c41a;
+  padding-left: 12px;
+}
+
+.option-item.user-selected.correct-option {
+  background-color: #e6f7ff;
 }
 
 .review-header {

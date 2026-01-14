@@ -625,4 +625,11 @@ public class ExamController {
         
         return Result.success(questions);
     }
+    
+    @GetMapping("/question/options/{questionId}")
+    public Result getQuestionOptions(@PathVariable Integer questionId) {
+        List<QuestionOption> options = optionService.selectByQuestionId(questionId);
+        return Result.success(options);
+    }
+    
 }
