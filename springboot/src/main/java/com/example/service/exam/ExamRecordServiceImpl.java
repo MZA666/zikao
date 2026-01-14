@@ -20,6 +20,11 @@ public class ExamRecordServiceImpl implements ExamRecordService {
 
     @Override
     public int insert(ExamRecord examRecord) {
+        System.out.println("Inserting exam record in service: " + examRecord);
+        System.out.println("Answers in service: " + examRecord.getAnswers());
+        if (examRecord.getAnswers() != null) {
+            System.out.println("Answers size in service: " + examRecord.getAnswers().size());
+        }
         return examRecordMapper.insert(examRecord);
     }
 

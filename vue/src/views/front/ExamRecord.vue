@@ -362,8 +362,25 @@ export default {
   color: #999;
 }
 
+.review-controls {
+  margin-bottom: 15px;
+}
+
+.wrong-answer {
+  border: 2px solid #f56c6c;
+  background-color: #fef0f0;
+}
+
+.wrong-answer h4 {
+  color: #f56c6c;
+}
+
 .pagination {
   text-align: center;
   margin-top: 20px;
+}
+
+.el-checkbox {
+  margin-right: 20px;
 }
 </style>

@@ -494,6 +494,11 @@ public class ExamController {
     // 考试记录相关接口
     @PostMapping("/record")
     public Result addExamRecord(@RequestBody ExamRecord examRecord) {
+        System.out.println("Received exam record: " + examRecord);
+        System.out.println("Answers field: " + examRecord.getAnswers());
+        if (examRecord.getAnswers() != null) {
+            System.out.println("Answers size: " + examRecord.getAnswers().size());
+        }
         examRecordService.insert(examRecord);
         return Result.success();
     }

@@ -15,15 +15,16 @@
         <result column="accuracy" property="accuracy"/>
         <result column="duration" property="duration"/>
         <result column="exam_time" property="examTime"/>
+        <result column="answers" property="answers" jdbcType="VARCHAR" typeHandler="com.example.handler.JsonTypeHandler"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, user_id, username, paper_id, paper_name, subject_id, subject_name, score, total_score, accuracy, duration, exam_time
+        id, user_id, username, paper_id, paper_name, subject_id, subject_name, score, total_score, accuracy, duration, exam_time, answers
     </sql>
 
     <insert id="insert" parameterType="com.example.entity.exam.ExamRecord" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO exam_record (user_id, username, paper_id, paper_name, subject_id, subject_name, score, total_score, accuracy, duration, exam_time)
-        VALUES (#{userId}, #{username}, #{paperId}, #{paperName}, #{subjectId}, #{subjectName}, #{score}, #{totalScore}, #{accuracy}, #{duration}, NOW())
+        INSERT INTO exam_record (user_id, username, paper_id, paper_name, subject_id, subject_name, score, total_score, accuracy, duration, exam_time, answers)
+        VALUES (#{userId}, #{username}, #{paperId}, #{paperName}, #{subjectId}, #{subjectName}, #{score}, #{totalScore}, #{accuracy}, #{duration}, NOW(), #{answers,jdbcType=LONGVARCHAR,typeHandler=com.example.handler.JsonTypeHandler})
     </insert>
 
     <delete id="deleteById" parameterType="java.lang.Integer">
@@ -42,7 +43,8 @@
             total_score = #{totalScore},
             accuracy = #{accuracy},
             duration = #{duration},
-            exam_time = NOW()
+            exam_time = NOW(),
+            answers = #{answers,jdbcType=VARCHAR,typeHandler=com.example.handler.JsonTypeHandler}
         WHERE id = #{id}
     </update>
 

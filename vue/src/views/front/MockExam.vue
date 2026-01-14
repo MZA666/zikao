@@ -185,7 +185,8 @@ export default {
       score: 0,
       totalScore: 0,
       usedTime: 0,
-      currentExamPaper: {}
+      currentExamPaper: {},
+      answerDetails: []  // 存储答题详情，包括错题信息
     }
   },
   computed: {
@@ -481,13 +482,30 @@ export default {
       this.totalScore = this.examQuestions.length * 5 // 每题5分
       this.score = 0
       
+      // 记录答题详情，包括错题信息
+      this.answerDetails = [];
+      
       for (let i = 0; i < this.examQuestions.length; i++) {
-        const userAnswer = Array.isArray(this.userAnswers[i]) ? this.userAnswers[i].join('') : this.userAnswers[i]
-        const correctAnswer = this.examQuestions[i].answer
+        const userAnswer = Array.isArray(this.userAnswers[i]) ? this.userAnswers[i].join('') : this.userAnswers[i];
+        const correctAnswer = this.examQuestions[i].answer;
+        const isCorrect = userAnswer === correctAnswer;
         
-        if (userAnswer === correctAnswer) {
+        if (isCorrect) {
           this.score += 5
         }
+        
+        // 记录每道题的详细信息
+        const answerDetail = {
+          questionId: this.examQuestions[i].id,
+          questionContent: this.examQuestions[i].content,
+          userAnswer: this.userAnswers[i],
+          correctAnswer: this.examQuestions[i].answer,
+          score: isCorrect ? 5 : 0,
+          analysis: this.examQuestions[i].analysis || '',
+          isCorrect: isCorrect
+        };
+        console.log(`题目 ${i+1}:`, answerDetail);
+        this.answerDetails.push(answerDetail);
       }
       
       this.usedTime = this.examConfig.duration - Math.ceil((this.remainingTime < 0 ? 0 : this.remainingTime) / 60)
@@ -511,6 +529,9 @@ export default {
           return;
         }
         
+        console.log('当前answerDetails数组:', this.answerDetails);
+        console.log('answerDetails长度:', this.answerDetails.length);
+        
         const examRecord = {
           userId: parseInt(userId),
           username: JSON.parse(localStorage.getItem('system-user'))?.name || '',
@@ -522,7 +543,8 @@ export default {
           totalScore: this.totalScore,
           accuracy: Math.round((this.score / this.totalScore) * 100),
           duration: this.usedTime,
-          examTime: new Date().toISOString()
+          examTime: new Date().toISOString(),
+          answers: this.answerDetails // 添加答题详情
         }
         
         console.log('保存考试记录:', examRecord);
