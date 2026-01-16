@@ -14,6 +14,7 @@ const router = createRouter({
         { path: 'file-audit', component: () => import('@/views/manager/FileAudit.vue')},
         { path: 'file-preview', component: () => import('@/views/manager/FilePreview.vue'), name: 'FilePreview'},
         { path: 'exam-management', component: () => import('@/views/manager/ExamManagement.vue')},
+        { path: 'post-management', component: () => import('@/views/manager/PostManagement.vue')},
       ]
     },
     {

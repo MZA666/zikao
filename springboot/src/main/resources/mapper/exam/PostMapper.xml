@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.PostMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.entity.Post">
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <result column="title" property="title" jdbcType="VARCHAR"/>
+        <result column="content" property="content" jdbcType="LONGVARCHAR"/>
+        <result column="user_id" property="userId" jdbcType="INTEGER"/>
+        <result column="username" property="username" jdbcType="VARCHAR"/>
+        <result column="create_time" property="createTime" jdbcType="TIMESTAMP"/>
+        <result column="update_time" property="updateTime" jdbcType="TIMESTAMP"/>
+        <result column="status" property="status" jdbcType="INTEGER"/>
+        <result column="is_top" property="isTop" jdbcType="INTEGER"/>
+        <result column="offline_reason" property="offlineReason" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, title, content, user_id, username, create_time, update_time, status, is_top, offline_reason
+    </sql>
+
+    <select id="selectById" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM post
+        WHERE id = #{id,jdbcType=INTEGER}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM post
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectAllPosts" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM post
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectCount" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM post
+        WHERE 1=1
+        <if test="title != null and title != ''">
+            AND title LIKE CONCAT('%', #{title}, '%')
+        </if>
+        <if test="startTime != null and startTime != ''">
+            AND create_time >= #{startTime}
+        </if>
+        <if test="endTime != null and endTime != ''">
+            AND create_time &lt;= #{endTime}
+        </if>
+        <if test="userId != null">
+            AND user_id = #{userId}
+        </if>
+    </select>
+
+    <select id="selectList" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM post
+        WHERE 1=1
+        <if test="title != null and title != ''">
+            AND title LIKE CONCAT('%', #{title}, '%')
+        </if>
+        <if test="startTime != null and startTime != ''">
+            AND create_time >= #{startTime}
+        </if>
+        <if test="endTime != null and endTime != ''">
+            AND create_time &lt;= #{endTime}
+        </if>
+        <if test="userId != null">
+            AND user_id = #{userId}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByUserId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM post
+        WHERE user_id = #{userId,jdbcType=INTEGER}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectPublishedPosts" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM post
+        WHERE status = 1
+        ORDER BY is_top DESC, create_time DESC
+    </select>
+
+    <insert id="insert" parameterType="com.example.entity.Post" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO post (title, content, user_id, username, create_time, update_time, status, is_top, offline_reason)
+        VALUES (#{title,jdbcType=VARCHAR}, #{content,jdbcType=LONGVARCHAR}, #{userId,jdbcType=INTEGER},
+                #{username,jdbcType=VARCHAR}, NOW(), NOW(), #{status,jdbcType=INTEGER}, #{isTop,jdbcType=INTEGER}, #{offlineReason,jdbcType=VARCHAR})
+    </insert>
+
+    <update id="update" parameterType="com.example.entity.Post">
+        UPDATE post
+        <set>
+            <if test="title != null">
+                title = #{title,jdbcType=VARCHAR},
+            </if>
+            <if test="content != null">
+                content = #{content,jdbcType=LONGVARCHAR},
+            </if>
+            <if test="updateTime != null">
+                update_time = #{updateTime,jdbcType=TIMESTAMP},
+            </if>
+            <if test="status != null">
+                status = #{status,jdbcType=INTEGER},
+            </if>
+            <if test="isTop != null">
+                is_top = #{isTop,jdbcType=INTEGER},
+            </if>
+            <if test="offlineReason != null">
+                offline_reason = #{offlineReason,jdbcType=VARCHAR},
+            </if>
+        </set>
+        WHERE id = #{id,jdbcType=INTEGER}
+    </update>
+
+    <update id="updateTopStatus" parameterType="java.util.Map">
+        UPDATE post
+        SET is_top = #{isTop}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateOfflineStatus" parameterType="java.util.Map">
+        UPDATE post
+        SET status = 2, offline_reason = #{offlineReason}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="java.lang.Integer">
+        DELETE FROM post
+        WHERE id = #{id,jdbcType=INTEGER}
+    </delete>
+
+</mapper>
