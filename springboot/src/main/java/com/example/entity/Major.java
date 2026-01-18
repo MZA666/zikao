@@ -1,12 +1,11 @@
-package com.example.entity.exam;
+package com.example.entity;
 
 import java.util.Date;
 
-public class Subject {
-    private Integer id; // 学科ID
-    private String name; // 学科名称
-    private Integer majorId; // 所属专业ID
-    private String description; // 学科描述
+public class Major {
+    private Integer id; // 专业ID
+    private String name; // 专业名称
+    private String description; // 专业描述
     private Date createdTime; // 创建时间
     private Date updatedTime; // 更新时间
 
@@ -25,14 +24,6 @@ public class Subject {
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public Integer getMajorId() {
-        return majorId;
-    }
-
-    public void setMajorId(Integer majorId) {
-        this.majorId = majorId;
     }
 
     public String getDescription() {

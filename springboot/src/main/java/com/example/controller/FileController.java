@@ -2,20 +2,27 @@ package com.example.controller;
 
 import com.example.common.Result;
 import com.example.entity.File;
+import com.example.entity.Major;
+import com.example.entity.exam.Subject;
 import com.example.enums.FileStatusEnum;
 import com.example.service.FileService;
+import com.example.service.MajorService;
+import com.example.service.exam.SubjectService;
 import com.example.utils.FileUtil;
 import com.example.utils.WordToHtmlUtil;
-import jakarta.servlet.ServletOutputStream;
-import jakarta.servlet.http.HttpServletResponse;
+import jakarta.annotation.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.FileFilter;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Date;
 import java.util.List;
 
 @RestController
@@ -32,9 +39,14 @@ public class FileController {
     private String port;
 
     private final FileService fileService;
+    private final MajorService majorService;
+    private final SubjectService subjectService;
+    private static final Logger logger = LoggerFactory.getLogger(FileController.class);
 
-    public FileController(FileService fileService) {
+    public FileController(FileService fileService, MajorService majorService, SubjectService subjectService) {
         this.fileService = fileService;
+        this.majorService = majorService;
+        this.subjectService = subjectService;
     }
 
     /**
@@ -45,9 +57,51 @@ public class FileController {
                          @RequestParam Integer uploaderId, 
                          @RequestParam String uploader,
                          @RequestParam(required = false) String description,
-                         @RequestParam(defaultValue = "0") Integer isShared) {
+                         @RequestParam(defaultValue = "0") Integer isShared,
+                         @RequestParam(required = false) Integer majorId,
+                         @RequestParam(required = false) Integer disciplineId,
+                         @RequestParam(required = false) String majorName,
+                         @RequestParam(required = false) String disciplineName) {
         try {
-            File uploadedFile = fileService.uploadFile(file, uploaderId, uploader, description, isShared);
+            // 如果专业或学科不存在，但提供了名称，则尝试创建
+            Integer finalMajorId = majorId;
+            Integer finalDisciplineId = disciplineId;
+            
+            // 如果提供了专业名称但没有提供ID，则尝试创建专业
+            if (majorName != null && !majorName.trim().isEmpty() && (majorId == null || majorId <= 0)) {
+                // 检查专业是否已存在
+                com.example.entity.Major existingMajor = majorService.findByName(majorName);
+                if (existingMajor != null) {
+                    finalMajorId = existingMajor.getId(); // 使用已存在的专业ID
+                } else {
+                    // 创建新的专业
+                    com.example.entity.Major newMajor = new com.example.entity.Major();
+                    newMajor.setName(majorName);
+                    majorService.addMajor(newMajor);
+                    finalMajorId = newMajor.getId(); // 使用新创建的专业ID
+                }
+            }
+            
+            // 如果提供了学科名称但没有提供ID，则尝试创建学科
+            if (disciplineName != null && !disciplineName.trim().isEmpty() && (disciplineId == null || disciplineId <= 0)) {
+                // 检查学科是否已存在
+                com.example.entity.exam.Subject existingSubject = subjectService.findByName(disciplineName);
+                if (existingSubject != null) {
+                    finalDisciplineId = existingSubject.getId(); // 使用已存在的学科ID
+                } else {
+                    // 创建新的学科
+                    com.example.entity.exam.Subject newSubject = new com.example.entity.exam.Subject();
+                    newSubject.setName(disciplineName);
+                    // 如果有专业ID，设置关联关系
+                    if (finalMajorId != null) {
+                        newSubject.setMajorId(finalMajorId);
+                    }
+                    subjectService.addSubject(newSubject);
+                    finalDisciplineId = newSubject.getId(); // 使用新创建的学科ID
+                }
+            }
+            
+            File uploadedFile = fileService.uploadFile(file, uploaderId, uploader, description, isShared, finalMajorId, finalDisciplineId);
             return Result.success(uploadedFile);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -125,12 +179,15 @@ public class FileController {
     }
 
     /**
-     * 学员查询自己上传的文件
+     * 学员查询自己上传的文件（支持专业和学科筛选）
      */
     @GetMapping("/myFiles")
-    public Result getMyFiles(@RequestParam Integer uploaderId, @RequestParam(required = false) String fileName) {
+    public Result getMyFiles(@RequestParam Integer uploaderId, 
+                             @RequestParam(required = false) String fileName,
+                             @RequestParam(required = false) Integer majorId,
+                             @RequestParam(required = false) Integer disciplineId) {
         try {
-            List<File> files = fileService.selectByUploaderId(uploaderId, fileName);
+            List<File> files = fileService.selectByUploaderId(uploaderId, fileName, majorId, disciplineId);
             return Result.success(files);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -138,13 +195,16 @@ public class FileController {
     }
     
     /**
-     * 查询已通过审核的共享文件
+     * 查询已通过审核的共享文件（支持专业和学科筛选）
      */
     @GetMapping("/sharedFiles")
-    public Result getSharedFiles(@RequestParam Integer status, @RequestParam(required = false) String fileName) {
+    public Result getSharedFiles(@RequestParam Integer status, 
+                                 @RequestParam(required = false) String fileName,
+                                 @RequestParam(required = false) Integer majorId,
+                                 @RequestParam(required = false) Integer disciplineId) {
         try {
             if (status == FileStatusEnum.APPROVED.getCode()) {
-                List<File> files = fileService.selectApprovedSharedFiles(fileName);
+                List<File> files = fileService.selectApprovedSharedFiles(fileName, majorId, disciplineId);
                 return Result.success(files);
             } else {
                 return Result.error("参数错误");
@@ -295,5 +355,88 @@ public class FileController {
      */
     private boolean isWordFileName(String originalName) {
         return originalName.endsWith(".doc") || originalName.endsWith(".docx");
+    }
+    
+    /**
+     * 获取所有专业列表
+     */
+    @GetMapping("/majors")
+    public Result getAllMajors() {
+        try {
+            List<Major> majors = majorService.findAll();
+            return Result.success(majors);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+    
+    /**
+     * 获取所有学科列表
+     */
+    @GetMapping("/disciplines")
+    public Result getAllDisciplines() {
+        try {
+            List<Subject> subjects = subjectService.findAll();
+            return Result.success(subjects);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+    
+    /**
+     * 根据专业ID获取学科列表
+     */
+    @GetMapping("/disciplines/by-major/{majorId}")
+    public Result getDisciplinesByMajor(@PathVariable Integer majorId) {
+        try {
+            List<Subject> subjects = subjectService.findByMajorId(majorId);
+            return Result.success(subjects);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+    
+    /**
+     * 创建专业
+     */
+    @PostMapping("/major")
+    public Result createMajor(@RequestBody Major major) {
+        try {
+            logger.info("创建专业请求，专业名称: {}", major.getName());
+            // 检查专业是否已存在
+            Major existingMajor = majorService.findByName(major.getName());
+            if (existingMajor != null) {
+                logger.warn("专业已存在，专业名称: {}", major.getName());
+                return Result.error("专业已存在");
+            }
+            majorService.addMajor(major);
+            logger.info("专业创建成功，专业ID: {}, 专业名称: {}", major.getId(), major.getName());
+            return Result.success(major); // 返回创建的专业对象，包含ID
+        } catch (Exception e) {
+            logger.error("创建专业失败", e);
+            return Result.error(e.getMessage());
+        }
+    }
+    
+    /**
+     * 创建学科
+     */
+    @PostMapping("/discipline")
+    public Result createDiscipline(@RequestBody Subject subject) {
+        try {
+            logger.info("创建学科请求，学科名称: {}, 专业ID: {}", subject.getName(), subject.getMajorId());
+            // 检查学科是否已存在
+            Subject existingSubject = subjectService.findByName(subject.getName());
+            if (existingSubject != null) {
+                logger.warn("学科已存在，学科名称: {}", subject.getName());
+                return Result.error("学科已存在");
+            }
+            subjectService.addSubject(subject);
+            logger.info("学科创建成功，学科ID: {}, 学科名称: {}, 专业ID: {}", subject.getId(), subject.getName(), subject.getMajorId());
+            return Result.success(subject); // 返回创建的学科对象，包含ID
+        } catch (Exception e) {
+            logger.error("创建学科失败", e);
+            return Result.error(e.getMessage());
+        }
     }
 }

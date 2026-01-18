@@ -2,9 +2,6 @@ package com.example.entity;
 
 import java.util.Date;
 
-/**
- * 文件实体类
- */
 public class File {
     private Integer fileId; // 文件ID
     private String fileName; // 文件名
@@ -21,6 +18,8 @@ public class File {
     private Integer auditorId; // 审核员ID
     private String description; // 文件描述
     private Integer isShared; // 0-私密文件，1-共享文件
+    private Integer majorId; // 专业ID
+    private Integer disciplineId; // 学科ID
 
     // Getters and Setters
     public Integer getFileId() {
@@ -141,5 +140,21 @@ public class File {
 
     public void setIsShared(Integer isShared) {
         this.isShared = isShared;
+    }
+
+    public Integer getMajorId() {
+        return majorId;
+    }
+
+    public void setMajorId(Integer majorId) {
+        this.majorId = majorId;
+    }
+
+    public Integer getDisciplineId() {
+        return disciplineId;
+    }
+
+    public void setDisciplineId(Integer disciplineId) {
+        this.disciplineId = disciplineId;
     }
 }

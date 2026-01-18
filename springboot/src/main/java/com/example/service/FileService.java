@@ -1,33 +1,34 @@
 package com.example.service;
 
-import cn.hutool.core.util.ObjectUtil;
 import com.example.entity.File;
 import com.example.enums.FileStatusEnum;
 import com.example.exception.CustomException;
 import com.example.mapper.FileMapper;
-import com.github.pagehelper.PageHelper;
-import com.github.pagehelper.PageInfo;
-import jakarta.annotation.Resource;
+import com.example.service.exam.SubjectService; // 修改导入路径
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
 
-/**
- * 文件业务处理
- */
 @Service
 public class FileService {
 
     @Resource
     private FileMapper fileMapper;
+    
+    @Resource
+    private MajorService majorService;
+    
+    @Resource
+    private SubjectService subjectService; // 修改导入路径
 
     /**
      * 上传文件
      */
-    public File uploadFile(MultipartFile multipartFile, Integer uploaderId, String uploader, String description, Integer isShared) {
+    public File uploadFile(MultipartFile multipartFile, Integer uploaderId, String uploader, String description, Integer isShared, Integer majorId, Integer disciplineId) {
         // 验证文件
         validateFile(multipartFile);
 
@@ -50,6 +51,30 @@ public class FileService {
         file.setUploadTime(new Date());
         file.setDescription(description);
         file.setIsShared(isShared); // 设置共享状态
+        
+        // 验证并处理专业ID
+        Integer processedMajorId = null;
+        if (majorId != null) {
+            // 尝试从数据库中获取专业，如果不存在则返回null
+            com.example.entity.Major major = majorService.findById(majorId);
+            if (major != null) {
+                processedMajorId = majorId;
+            }
+            // 如果专业不存在，processedMajorId将保持为null
+        }
+        file.setMajorId(processedMajorId); // 设置专业ID
+        
+        // 验证并处理学科ID
+        Integer processedDisciplineId = null;
+        if (disciplineId != null) {
+            // 尝试从数据库中获取学科，如果不存在则返回null
+            com.example.entity.exam.Subject subject = subjectService.findById(disciplineId);
+            if (subject != null) {
+                processedDisciplineId = disciplineId;
+            }
+            // 如果学科不存在，processedDisciplineId将保持为null
+        }
+        file.setDisciplineId(processedDisciplineId); // 设置学科ID（仍使用disciplineId字段，但实际是subject）
 
         // 保存到数据库
         fileMapper.insert(file);
@@ -67,11 +92,18 @@ public class FileService {
     }
 
     /**
+     * 上传文件（旧方法，保持向后兼容）
+     */
+    public File uploadFile(MultipartFile multipartFile, Integer uploaderId, String uploader, String description, Integer isShared) {
+        return uploadFile(multipartFile, uploaderId, uploader, description, isShared, null, null);
+    }
+
+    /**
      * 审核文件
      */
     public void auditFile(Integer fileId, Integer auditorId, Integer status, String reason) {
         File file = fileMapper.selectById(fileId);
-        if (ObjectUtil.isNull(file)) {
+        if (org.springframework.util.ObjectUtils.isEmpty(file)) {
             throw new CustomException("文件不存在");
         }
 
@@ -85,15 +117,28 @@ public class FileService {
     }
 
     /**
-     * 根据上传者ID查询文件（支持文件名模糊查询）
+     * 根据上传者ID查询文件（支持文件名模糊查询，新增专业和学科筛选）
      */
-    public List<File> selectByUploaderId(Integer uploaderId, String fileName) {
+    public List<File> selectByUploaderId(Integer uploaderId, String fileName, Integer majorId, Integer disciplineId) {
         File file = new File();
         file.setUploaderId(uploaderId);
         if (fileName != null && !fileName.trim().isEmpty()) {
             file.setOriginalName(fileName); // 在实体类中设置文件名，用于模糊查询
         }
+        if (majorId != null) {
+            file.setMajorId(majorId);
+        }
+        if (disciplineId != null) {
+            file.setDisciplineId(disciplineId);
+        }
         return fileMapper.selectAll(file);
+    }
+
+    /**
+     * 根据上传者ID查询文件（支持文件名模糊查询）
+     */
+    public List<File> selectByUploaderId(Integer uploaderId, String fileName) {
+        return selectByUploaderId(uploaderId, fileName, null, null);
     }
 
     /**
@@ -118,16 +163,29 @@ public class FileService {
     }
     
     /**
-     * 查询已通过审核的共享文件（支持文件名模糊查询）
+     * 查询已通过审核的共享文件（支持文件名、专业、学科模糊查询）
      */
-    public List<File> selectApprovedSharedFiles(String fileName) {
+    public List<File> selectApprovedSharedFiles(String fileName, Integer majorId, Integer disciplineId) {
         File file = new File();
         file.setIsShared(1); // 共享文件
         file.setStatus(FileStatusEnum.APPROVED.getCode()); // 已通过审核
         if (fileName != null && !fileName.trim().isEmpty()) {
             file.setOriginalName(fileName); // 在实体类中设置文件名，用于模糊查询
         }
+        if (majorId != null) {
+            file.setMajorId(majorId);
+        }
+        if (disciplineId != null) {
+            file.setDisciplineId(disciplineId);
+        }
         return fileMapper.selectAll(file);
+    }
+    
+    /**
+     * 查询已通过审核的共享文件（支持文件名模糊查询）
+     */
+    public List<File> selectApprovedSharedFiles(String fileName) {
+        return selectApprovedSharedFiles(fileName, null, null);
     }
     
     /**

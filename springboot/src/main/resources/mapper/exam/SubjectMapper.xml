@@ -5,18 +5,19 @@
     <resultMap id="BaseResultMap" type="com.example.entity.exam.Subject">
         <id column="id" property="id"/>
         <result column="name" property="name"/>
+        <result column="major_id" property="majorId"/>
         <result column="description" property="description"/>
         <result column="created_time" property="createdTime"/>
         <result column="updated_time" property="updatedTime"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, name, description, created_time, updated_time
+        id, name, major_id, description, created_time, updated_time
     </sql>
 
     <insert id="insert" parameterType="com.example.entity.exam.Subject" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO subject (name, description, created_time, updated_time)
-        VALUES (#{name}, #{description}, NOW(), NOW())
+        INSERT INTO subject (name, major_id, description, created_time, updated_time)
+        VALUES (#{name}, #{majorId}, #{description}, NOW(), NOW())
     </insert>
 
     <delete id="deleteById" parameterType="java.lang.Integer">
@@ -26,6 +27,7 @@
     <update id="updateById" parameterType="com.example.entity.exam.Subject">
         UPDATE subject
         SET name = #{name},
+            major_id = #{majorId},
             description = #{description},
             updated_time = NOW()
         WHERE id = #{id}
@@ -35,6 +37,19 @@
         SELECT <include refid="Base_Column_List"/>
         FROM subject
         WHERE id = #{id}
+    </select>
+
+    <select id="selectByName" parameterType="java.lang.String" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM subject
+        WHERE name = #{name}
+    </select>
+
+    <select id="selectByMajorId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM subject
+        WHERE major_id = #{majorId}
+        ORDER BY created_time DESC
     </select>
 
     <select id="selectAll" parameterType="com.example.entity.exam.Subject" resultMap="BaseResultMap">

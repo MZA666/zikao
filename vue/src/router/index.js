@@ -15,6 +15,7 @@ const router = createRouter({
         { path: 'file-preview', component: () => import('@/views/manager/FilePreview.vue'), name: 'FilePreview'},
         { path: 'exam-management', component: () => import('@/views/manager/ExamManagement.vue')},
         { path: 'post-management', component: () => import('@/views/manager/PostManagement.vue')},
+        { path: 'major-management', component: () => import('@/views/manager/MajorManagement.vue')},
       ]
     },
     {

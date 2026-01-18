@@ -6,6 +6,28 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h3>我的上传文件</h3>
             <div>
+              <el-autocomplete 
+                v-model="data.myFileMajorQueryStr" 
+                :fetch-suggestions="queryMajorSearchForQuery"
+                placeholder="选择专业" 
+                style="width: 120px; margin-right: 10px;"
+                clearable
+                @select="handleMajorQuerySelect">
+                <template #default="{ item }">
+                  <span>{{ item.name }}</span>
+                </template>
+              </el-autocomplete>
+              <el-autocomplete 
+                v-model="data.myFileSubjectQueryStr" 
+                :fetch-suggestions="querySubjectSearchForQuery"
+                placeholder="选择学科" 
+                style="width: 120px; margin-right: 10px;"
+                clearable
+                @select="handleSubjectQuerySelect">
+                <template #default="{ item }">
+                  <span>{{ item.name }}</span>
+                </template>
+              </el-autocomplete>
               <el-input 
                 v-model="data.myFileQuery" 
                 placeholder="请输入文件名" 
@@ -28,6 +50,16 @@
               </template>
             </el-table-column>
             <el-table-column prop="fileType" label="文件类型" width="100"></el-table-column>
+            <el-table-column label="专业" width="120">
+              <template #default="scope">
+                {{ getMajorNameById(scope.row.majorId) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="学科" width="120">
+              <template #default="scope">
+                {{ getSubjectNameById(scope.row.disciplineId) }}
+              </template>
+            </el-table-column>
             <el-table-column prop="uploadTime" label="上传时间" width="180">
               <template #default="scope">
                 {{ scope.row.uploadTime ? new Date(scope.row.uploadTime).toLocaleString() : '' }}
@@ -63,6 +95,28 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h3>共享课程资料</h3>
             <div>
+              <el-autocomplete 
+                v-model="data.sharedFileMajorQueryStr" 
+                :fetch-suggestions="queryMajorSearchForQuery"
+                placeholder="选择专业" 
+                style="width: 120px; margin-right: 10px;"
+                clearable
+                @select="handleSharedMajorQuerySelect">
+                <template #default="{ item }">
+                  <span>{{ item.name }}</span>
+                </template>
+              </el-autocomplete>
+              <el-autocomplete 
+                v-model="data.sharedFileSubjectQueryStr" 
+                :fetch-suggestions="querySubjectSearchForQuery"
+                placeholder="选择学科" 
+                style="width: 120px; margin-right: 10px;"
+                clearable
+                @select="handleSharedSubjectQuerySelect">
+                <template #default="{ item }">
+                  <span>{{ item.name }}</span>
+                </template>
+              </el-autocomplete>
               <el-input 
                 v-model="data.sharedFileQuery" 
                 placeholder="请输入文件名" 
@@ -85,6 +139,16 @@
               </template>
             </el-table-column>
             <el-table-column prop="fileType" label="文件类型" width="100"></el-table-column>
+            <el-table-column label="专业" width="120">
+              <template #default="scope">
+                {{ getMajorNameById(scope.row.majorId) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="学科" width="120">
+              <template #default="scope">
+                {{ getSubjectNameById(scope.row.disciplineId) }}
+              </template>
+            </el-table-column>
             <el-table-column prop="uploader" label="上传者" width="120"></el-table-column>
             <el-table-column prop="uploadTime" label="上传时间" width="180">
               <template #default="scope">
@@ -104,6 +168,30 @@
         <div class="tab-content">
           <h3>上传文件</h3>
           <el-form :model="data.uploadForm" label-width="120px">
+            <el-form-item label="专业">
+              <el-autocomplete
+                v-model="data.uploadForm.majorName"
+                :fetch-suggestions="queryMajorSearch"
+                placeholder="请输入或选择专业"
+                style="width: 100%"
+                @select="handleMajorSelectFromAutoComplete">
+                <template #default="{ item }">
+                  <span>{{ item.name }}</span>
+                </template>
+              </el-autocomplete>
+            </el-form-item>
+            <el-form-item label="学科">
+              <el-autocomplete
+                v-model="data.uploadForm.subjectName"
+                :fetch-suggestions="querySubjectSearch"
+                placeholder="请输入或选择学科"
+                style="width: 100%"
+                @select="handleSubjectSelectFromAutoComplete">
+                <template #default="{ item }">
+                  <span>{{ item.name }}</span>
+                </template>
+              </el-autocomplete>
+            </el-form-item>
             <el-form-item label="文件类型">
               <el-radio-group v-model="data.uploadForm.fileType">
                 <el-radio label="private">私密文件</el-radio>
@@ -188,12 +276,178 @@ const data = reactive({
   myFiles: [],
   sharedFiles: [],
   uploadForm: {
-    fileType: 'private' // 默认为私密文件
+    fileType: 'private', // 默认为私密文件
+    majorName: '', // 专业名称
+    subjectName: '' // 学科名称
   },
   user: props.user,
   myFileQuery: '', // 我的文件查询条件
-  sharedFileQuery: '' // 共享文件查询条件
+  sharedFileQuery: '', // 共享文件查询条件
+  myFileMajorQuery: null, // 我的文件专业查询条件
+  myFileSubjectQuery: null, // 我的文件学科查询条件
+  sharedFileMajorQuery: null, // 共享文件专业查询条件
+  sharedFileSubjectQuery: null, // 共享文件学科查询条件
+  myFileMajorQueryStr: '', // 我的文件专业查询字符串
+  myFileSubjectQueryStr: '', // 我的文件学科查询字符串
+  sharedFileMajorQueryStr: '', // 共享文件专业查询字符串
+  sharedFileSubjectQueryStr: '', // 共享文件学科查询字符串
+  majors: [], // 专业列表
+  subjects: [] // 学科列表
 });
+
+// 加载专业和学科数据
+const loadMajorsAndSubjects = async () => {
+  try {
+    const majorRes = await request({
+      url: '/files/majors',
+      method: 'get'
+    });
+    if (majorRes.code === '200') {
+      data.majors = majorRes.data || [];
+    }
+    
+    const subjectRes = await request({
+      url: '/files/disciplines', // 仍然调用disciplines接口，但实际返回的是subject数据
+      method: 'get'
+    });
+    if (subjectRes.code === '200') {
+      data.subjects = subjectRes.data || [];
+    }
+  } catch (error) {
+    console.error('加载专业和学科数据失败:', error);
+  }
+};
+
+// 获取专业名称通过ID
+const getMajorNameById = (id) => {
+  if (!id) return '';
+  const major = data.majors.find(m => m.id === id);
+  return major ? major.name : '';
+};
+
+// 获取学科名称通过ID
+const getSubjectNameById = (id) => {
+  if (!id) return '';
+  const subject = data.subjects.find(s => s.id === id);
+  return subject ? subject.name : '';
+};
+
+// 专业自动完成搜索
+const queryMajorSearch = (queryString, callback) => {
+  const results = queryString
+    ? data.majors.filter(major => major.name.toLowerCase().includes(queryString.toLowerCase()))
+    : data.majors;
+  callback(results);
+};
+
+// 用于查询的专业自动完成搜索
+const queryMajorSearchForQuery = (queryString, callback) => {
+  const results = queryString
+    ? data.majors.filter(major => major.name.toLowerCase().includes(queryString.toLowerCase()))
+    : data.majors;
+  callback(results);
+};
+
+// 学科自动完成搜索
+const querySubjectSearch = (queryString, callback) => {
+  let results = [];
+  if (queryString) {
+    results = data.subjects.filter(subject => 
+      subject.name.toLowerCase().includes(queryString.toLowerCase())
+    );
+  } else {
+    results = data.subjects;
+  }
+  
+  // 如果有选择专业，只显示该专业下的学科
+  if (data.uploadForm.majorId) {
+    results = results.filter(s => s.majorId === data.uploadForm.majorId);
+  }
+  
+  callback(results);
+};
+
+// 用于查询的学科自动完成搜索
+const querySubjectSearchForQuery = (queryString, callback) => {
+  let results = [];
+  if (queryString) {
+    results = data.subjects.filter(subject => 
+      subject.name.toLowerCase().includes(queryString.toLowerCase())
+    );
+  } else {
+    results = data.subjects;
+  }
+  
+  // 如果是在查询模式下，根据查询的专业ID过滤学科
+  if (data.myFileMajorQuery) {
+    results = results.filter(s => s.majorId === data.myFileMajorQuery);
+  } else if (data.sharedFileMajorQuery) {
+    results = results.filter(s => s.majorId === data.sharedFileMajorQuery);
+  }
+  
+  callback(results);
+};
+
+// 专业选择处理
+const handleMajorSelect = (item) => {
+  data.uploadForm.majorId = item.id;
+  // 清空已选择的学科，因为可能需要重新筛选
+  data.uploadForm.subjectId = null;
+  data.uploadForm.subjectName = '';
+};
+
+// 学科选择处理
+const handleSubjectSelect = (item) => {
+  data.uploadForm.subjectId = item.id;
+  data.uploadForm.subjectName = item.name;
+};
+
+// 专业自动完成选择处理
+const handleMajorSelectFromAutoComplete = (item) => {
+  data.uploadForm.majorId = item.id;
+  data.uploadForm.majorName = item.name;
+  // 清空已选择的学科，因为可能需要重新筛选
+  data.uploadForm.subjectId = null;
+  data.uploadForm.subjectName = '';
+};
+
+// 学科自动完成选择处理
+const handleSubjectSelectFromAutoComplete = (item) => {
+  data.uploadForm.subjectId = item.id;
+  data.uploadForm.subjectName = item.name;
+};
+
+// 查询专业选择处理
+const handleMajorQuerySelect = (item) => {
+  data.myFileMajorQuery = item.id;
+  data.myFileMajorQueryStr = item.name;
+  // 触发搜索
+  searchMyFiles();
+};
+
+// 查询学科选择处理
+const handleSubjectQuerySelect = (item) => {
+  data.myFileSubjectQuery = item.id;
+  data.myFileSubjectQueryStr = item.name;
+  // 触发搜索
+  searchMyFiles();
+};
+
+// 共享文件查询专业选择处理
+const handleSharedMajorQuerySelect = (item) => {
+  data.sharedFileMajorQuery = item.id;
+  data.sharedFileMajorQueryStr = item.name;
+  // 触发搜索
+  searchSharedFiles();
+};
+
+// 共享文件查询学科选择处理
+const handleSharedSubjectQuerySelect = (item) => {
+  data.sharedFileSubjectQuery = item.id;
+  data.sharedFileSubjectQueryStr = item.name;
+  // 触发搜索
+  searchSharedFiles();
+};
 
 // 监听文件选择变化
 const handleFileChange = (file, fileList) => {
@@ -245,6 +499,10 @@ const handleUploadSuccess = (response, file, fileList) => {
   data.selectedFile = null;
   data.fileList = [];
   data.fileDescription = '';
+  data.uploadForm.majorName = '';
+  data.uploadForm.subjectName = '';
+  data.uploadForm.majorId = null;
+  data.uploadForm.subjectId = null;
   // 根据文件类型刷新相应列表
   if (data.uploadForm.fileType === 'private') {
     getMyFiles();
@@ -290,7 +548,7 @@ const beforeUpload = (file) => {
   return isValidType && isLt50M;
 };
 
-const uploadFile = () => {
+const uploadFile = async () => {
   if (!data.selectedFile) {
     ElMessage.warning('请选择文件');
     return;
@@ -299,6 +557,89 @@ const uploadFile = () => {
   // 设置上传状态，禁用按钮
   data.isUploading = true;
   
+  // 如果专业或学科不存在，则先创建
+  let majorId = data.uploadForm.majorId;
+  let subjectId = data.uploadForm.subjectId;
+  
+  if (data.uploadForm.majorName && !data.uploadForm.majorId) {
+    // 尝试创建专业
+    try {
+      const majorRes = await request({
+        url: '/major-management/major',
+        method: 'post',
+        data: { name: data.uploadForm.majorName }
+      });
+      
+      if (majorRes.code === '200') {
+        majorId = majorRes.data.id; // 假设后端返回创建的对象
+        // 更新专业列表
+        loadMajorsAndSubjects();
+      } else {
+        ElMessage.error(majorRes.msg || '专业创建失败');
+        data.isUploading = false;
+        return;
+      }
+    } catch (error) {
+      // 如果创建失败，尝试查找是否已存在同名专业
+      try {
+        const majorRes = await request({
+          url: '/files/majors',
+          method: 'get'
+        });
+        if (majorRes.code === '200') {
+          const existingMajor = majorRes.data.find(m => m.name === data.uploadForm.majorName);
+          if (existingMajor) {
+            majorId = existingMajor.id;
+          }
+        }
+      } catch (findError) {
+        console.error('查找专业失败:', findError);
+      }
+    }
+  }
+  
+  if (data.uploadForm.subjectName && !data.uploadForm.subjectId) {
+    // 尝试创建学科
+    try {
+      const subjectData = { 
+        name: data.uploadForm.subjectName,
+        majorId: majorId 
+      };
+      
+      const subjectRes = await request({
+        url: '/major-management/subject',
+        method: 'post',
+        data: subjectData
+      });
+      
+      if (subjectRes.code === '200') {
+        subjectId = subjectRes.data.id; // 假设后端返回创建的对象
+        // 更新学科列表
+        loadMajorsAndSubjects();
+      } else {
+        ElMessage.error(subjectRes.msg || '学科创建失败');
+        data.isUploading = false;
+        return;
+      }
+    } catch (error) {
+      // 如果创建失败，尝试查找是否已存在同学科
+      try {
+        const subjectRes = await request({
+          url: '/files/disciplines',
+          method: 'get'
+        });
+        if (subjectRes.code === '200') {
+          const existingSubject = subjectRes.data.find(s => s.name === data.uploadForm.subjectName);
+          if (existingSubject) {
+            subjectId = existingSubject.id;
+          }
+        }
+      } catch (findError) {
+        console.error('查找学科失败:', findError);
+      }
+    }
+  }
+  
   // 手动触发上传
   const formData = new FormData();
   formData.append('file', data.selectedFile);
@@ -306,6 +647,19 @@ const uploadFile = () => {
   formData.append('uploader', data.user.username);
   formData.append('description', data.fileDescription);
   formData.append('isShared', data.uploadForm.fileType === 'shared' ? 1 : 0);
+  if (majorId) {
+    formData.append('majorId', majorId);
+  }
+  if (subjectId) {
+    formData.append('disciplineId', subjectId);
+  }
+  // 添加专业和学科名称，以便后端自动创建
+  if (data.uploadForm.majorName) {
+    formData.append('majorName', data.uploadForm.majorName);
+  }
+  if (data.uploadForm.subjectName) {
+    formData.append('disciplineName', data.uploadForm.subjectName);
+  }
   
   request({
     url: '/files/upload',
@@ -319,6 +673,10 @@ const uploadFile = () => {
       data.selectedFile = null;
       data.fileList = [];
       data.fileDescription = '';
+      data.uploadForm.majorName = '';
+      data.uploadForm.subjectName = '';
+      data.uploadForm.majorId = null;
+      data.uploadForm.subjectId = null;
       // 根据文件类型刷新相应列表
       if (data.uploadForm.fileType === 'private') {
         getMyFiles();
@@ -345,7 +703,11 @@ const getMyFiles = () => {
     request({
       url: '/files/myFiles',
       method: 'get',
-      params: { uploaderId: data.user.userId }
+      params: { 
+        uploaderId: data.user.userId,
+        majorId: data.myFileMajorQuery || undefined,
+        disciplineId: data.myFileSubjectQuery || undefined
+      }
     }).then(res => {
       if (res.code === '200') {
         data.myFiles = res.data || [];
@@ -358,7 +720,11 @@ const getSharedFiles = () => {
   request({
     url: '/files/sharedFiles',
     method: 'get',
-    params: { status: 1 } // 只获取已审核通过的共享文件
+    params: { 
+      status: 1, // 只获取已审核通过的共享文件
+      majorId: data.sharedFileMajorQuery || undefined,
+      disciplineId: data.sharedFileSubjectQuery || undefined
+    }
   }).then(res => {
     if (res.code === '200') {
       data.sharedFiles = res.data || [];
@@ -369,12 +735,51 @@ const getSharedFiles = () => {
 // 搜索我的文件
 const searchMyFiles = () => {
   // 向服务器发送带查询条件的请求，无论查询条件是否为空
+  let majorId = null;
+  let disciplineId = null;
+  
+  // 优先使用选择的ID，如果没有则尝试使用名称匹配
+  if (data.myFileMajorQuery) {
+    majorId = data.myFileMajorQuery;
+  } else if (data.myFileMajorQueryStr) {
+    // 如果输入的是专业名称，查找对应ID
+    const major = data.majors.find(m => m.name === data.myFileMajorQueryStr);
+    if (major) {
+      majorId = major.id;
+    } else {
+      // 如果没找到精确匹配，尝试模糊匹配
+      const fuzzyMajor = data.majors.find(m => m.name.toLowerCase().includes(data.myFileMajorQueryStr.toLowerCase()));
+      if (fuzzyMajor) {
+        majorId = fuzzyMajor.id;
+      }
+    }
+  }
+  
+  // 优先使用选择的ID，如果没有则尝试使用名称匹配
+  if (data.myFileSubjectQuery) {
+    disciplineId = data.myFileSubjectQuery;
+  } else if (data.myFileSubjectQueryStr) {
+    // 如果输入的是学科名称，查找对应ID
+    const subject = data.subjects.find(s => s.name === data.myFileSubjectQueryStr);
+    if (subject) {
+      disciplineId = subject.id;
+    } else {
+      // 如果没找到精确匹配，尝试模糊匹配
+      const fuzzySubject = data.subjects.find(s => s.name.toLowerCase().includes(data.myFileSubjectQueryStr.toLowerCase()));
+      if (fuzzySubject) {
+        disciplineId = fuzzySubject.id;
+      }
+    }
+  }
+  
   request({
     url: '/files/myFiles',
     method: 'get',
     params: { 
       uploaderId: data.user.userId,
-      fileName: data.myFileQuery.trim() === '' ? null : data.myFileQuery  // 添加文件名查询参数，如果为空则传null
+      fileName: data.myFileQuery.trim() === '' ? null : data.myFileQuery,  // 添加文件名查询参数，如果为空则传null
+      majorId: majorId || undefined,
+      disciplineId: disciplineId || undefined
     }
   }).then(res => {
     if (res.code === '200') {
@@ -392,12 +797,51 @@ const searchMyFiles = () => {
 // 搜索共享文件
 const searchSharedFiles = () => {
   // 向服务器发送带查询条件的请求，无论查询条件是否为空
+  let majorId = null;
+  let disciplineId = null;
+  
+  // 优先使用选择的ID，如果没有则尝试使用名称匹配
+  if (data.sharedFileMajorQuery) {
+    majorId = data.sharedFileMajorQuery;
+  } else if (data.sharedFileMajorQueryStr) {
+    // 如果输入的是专业名称，查找对应ID
+    const major = data.majors.find(m => m.name === data.sharedFileMajorQueryStr);
+    if (major) {
+      majorId = major.id;
+    } else {
+      // 如果没找到精确匹配，尝试模糊匹配
+      const fuzzyMajor = data.majors.find(m => m.name.toLowerCase().includes(data.sharedFileMajorQueryStr.toLowerCase()));
+      if (fuzzyMajor) {
+        majorId = fuzzyMajor.id;
+      }
+    }
+  }
+  
+  // 优先使用选择的ID，如果没有则尝试使用名称匹配
+  if (data.sharedFileSubjectQuery) {
+    disciplineId = data.sharedFileSubjectQuery;
+  } else if (data.sharedFileSubjectQueryStr) {
+    // 如果输入的是学科名称，查找对应ID
+    const subject = data.subjects.find(s => s.name === data.sharedFileSubjectQueryStr);
+    if (subject) {
+      disciplineId = subject.id;
+    } else {
+      // 如果没找到精确匹配，尝试模糊匹配
+      const fuzzySubject = data.subjects.find(s => s.name.toLowerCase().includes(data.sharedFileSubjectQueryStr.toLowerCase()));
+      if (fuzzySubject) {
+        disciplineId = fuzzySubject.id;
+      }
+    }
+  }
+  
   request({
     url: '/files/sharedFiles',
     method: 'get',
     params: { 
       status: 1,  // 只获取已审核通过的共享文件
-      fileName: data.sharedFileQuery.trim() === '' ? null : data.sharedFileQuery  // 添加文件名查询参数，如果为空则传null
+      fileName: data.sharedFileQuery.trim() === '' ? null : data.sharedFileQuery,  // 添加文件名查询参数，如果为空则传null
+      majorId: majorId || undefined,
+      disciplineId: disciplineId || undefined
     }
   }).then(res => {
     if (res.code === '200') {
@@ -505,7 +949,10 @@ const onTabChange = (pane) => {
   // 不需要为 file-upload 标签页加载特定数据
 };
 
-onMounted(() => {
+onMounted(async () => {
+  // 加载专业和学科数据
+  await loadMajorsAndSubjects();
+  
   // 从路由参数获取标签页，如果存在则切换到对应标签页
   const { tab } = route.query;
   if (tab && ['my-course', 'course-warehouse', 'file-upload'].includes(tab)) {
