@@ -264,6 +264,20 @@ public class FileController {
     }
     
     /**
+     * 管理员查询待审核文件（分页）
+     */
+    @GetMapping("/pendingFiles/page")
+    public Result getPendingFilesPage(@RequestParam(defaultValue = "1") Integer pageNum,
+                                     @RequestParam(defaultValue = "20") Integer pageSize) {
+        try {
+            PageInfo<File> pageInfo = fileService.selectByStatusWithPage(FileStatusEnum.PENDING.getCode(), pageNum, pageSize);
+            return Result.success(pageInfo);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+    
+    /**
      * 管理员审核文件
      */
     @PutMapping("/audit")
@@ -287,6 +301,21 @@ public class FileController {
         try {
             List<File> files = fileService.selectByStatus(status);
             return Result.success(files);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+    
+    /**
+     * 根据状态查询文件（分页）
+     */
+    @GetMapping("/filesByStatus/page")
+    public Result getFilesByStatusPage(@RequestParam Integer status,
+                                     @RequestParam(defaultValue = "1") Integer pageNum,
+                                     @RequestParam(defaultValue = "20") Integer pageSize) {
+        try {
+            PageInfo<File> pageInfo = fileService.selectByStatusWithPage(status, pageNum, pageSize);
+            return Result.success(pageInfo);
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }

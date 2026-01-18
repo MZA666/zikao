@@ -38,6 +38,16 @@
                 </template>
               </el-table-column>
             </el-table>
+            <el-pagination
+              v-model:current-page="data.pendingPagination.currentPage"
+              v-model:page-size="data.pendingPagination.pageSize"
+              :page-sizes="[10, 20, 30, 40, 50]"
+              layout="total, sizes, prev, pager, next, jumper"
+              :total="data.pendingPagination.total"
+              @size-change="handlePendingSizeChange"
+              @current-change="handlePendingCurrentChange"
+              style="margin-top: 20px; text-align: right;">
+            </el-pagination>
           </el-tab-pane>
           
           <el-tab-pane label="已通过文件" name="approved">
@@ -68,6 +78,16 @@
                 </template>
               </el-table-column>
             </el-table>
+            <el-pagination
+              v-model:current-page="data.approvedPagination.currentPage"
+              v-model:page-size="data.approvedPagination.pageSize"
+              :page-sizes="[10, 20, 30, 40, 50]"
+              layout="total, sizes, prev, pager, next, jumper"
+              :total="data.approvedPagination.total"
+              @size-change="handleApprovedSizeChange"
+              @current-change="handleApprovedCurrentChange"
+              style="margin-top: 20px; text-align: right;">
+            </el-pagination>
           </el-tab-pane>
           
           <el-tab-pane label="已拒绝文件" name="rejected">
@@ -94,6 +114,16 @@
               </el-table-column>
               <el-table-column prop="reason" label="拒绝原因" width="200"></el-table-column>
             </el-table>
+            <el-pagination
+              v-model:current-page="data.rejectedPagination.currentPage"
+              v-model:page-size="data.rejectedPagination.pageSize"
+              :page-sizes="[10, 20, 30, 40, 50]"
+              layout="total, sizes, prev, pager, next, jumper"
+              :total="data.rejectedPagination.total"
+              @size-change="handleRejectedSizeChange"
+              @current-change="handleRejectedCurrentChange"
+              style="margin-top: 20px; text-align: right;">
+            </el-pagination>
           </el-tab-pane>
         </el-tabs>
       </div>
@@ -133,48 +163,79 @@ const data = reactive({
   rejectedFiles: [],
   rejectDialogVisible: false,
   rejectReason: '',
-  currentFile: null
+  currentFile: null,
+  // 分页相关
+  pendingPagination: {
+    currentPage: 1,
+    pageSize: 20,
+    total: 0
+  },
+  approvedPagination: {
+    currentPage: 1,
+    pageSize: 20,
+    total: 0
+  },
+  rejectedPagination: {
+    currentPage: 1,
+    pageSize: 20,
+    total: 0
+  }
 });
-
-const loadFiles = () => {
-  loadPendingFiles();
-  loadApprovedFiles();
-  loadRejectedFiles();
-};
 
 const loadPendingFiles = () => {
   request({
-    url: '/files/pendingFiles',
-    method: 'get'
+    url: '/files/pendingFiles/page',
+    method: 'get',
+    params: { 
+      pageNum: data.pendingPagination.currentPage,
+      pageSize: data.pendingPagination.pageSize
+    }
   }).then(res => {
     if (res.code === '200') {
-      data.pendingFiles = res.data || [];
+      data.pendingFiles = res.data.list || [];
+      data.pendingPagination.total = res.data.total || 0;
     }
   });
 };
 
 const loadApprovedFiles = () => {
   request({
-    url: '/files/filesByStatus',
+    url: '/files/filesByStatus/page',
     method: 'get',
-    params: { status: 1 }
+    params: { 
+      status: 1,
+      pageNum: data.approvedPagination.currentPage,
+      pageSize: data.approvedPagination.pageSize
+    }
   }).then(res => {
     if (res.code === '200') {
-      data.approvedFiles = res.data || [];
+      data.approvedFiles = res.data.list || [];
+      data.approvedPagination.total = res.data.total || 0;
     }
   });
 };
 
 const loadRejectedFiles = () => {
   request({
-    url: '/files/filesByStatus',
+    url: '/files/filesByStatus/page',
     method: 'get',
-    params: { status: 2 }
+    params: { 
+      status: 2,
+      pageNum: data.rejectedPagination.currentPage,
+      pageSize: data.rejectedPagination.pageSize
+    }
   }).then(res => {
     if (res.code === '200') {
-      data.rejectedFiles = res.data || [];
+      data.rejectedFiles = res.data.list || [];
+      data.rejectedPagination.total = res.data.total || 0;
     }
   });
+};
+
+const loadFiles = () => {
+  loadPendingFiles();
+  loadApprovedFiles();
+  loadRejectedFiles();
 };
 
 const handleTabClick = (tab) => {
@@ -186,6 +247,45 @@ const handleTabClick = (tab) => {
   } else if (tab.paneName === 'rejected') {
     loadRejectedFiles();
   }
+};
+
+// 处理待审核文件页面大小改变
+const handlePendingSizeChange = (size) => {
+  data.pendingPagination.pageSize = size;
+  data.pendingPagination.currentPage = 1;
+  loadPendingFiles();
+};
+
+// 处理待审核文件页码改变
+const handlePendingCurrentChange = (currentPage) => {
+  data.pendingPagination.currentPage = currentPage;
+  loadPendingFiles();
+};
+
+// 处理已通过文件页面大小改变
+const handleApprovedSizeChange = (size) => {
+  data.approvedPagination.pageSize = size;
+  data.approvedPagination.currentPage = 1;
+  loadApprovedFiles();
+};
+
+// 处理已通过文件页码改变
+const handleApprovedCurrentChange = (currentPage) => {
+  data.approvedPagination.currentPage = currentPage;
+  loadApprovedFiles();
+};
+
+// 处理已拒绝文件页面大小改变
+const handleRejectedSizeChange = (size) => {
+  data.rejectedPagination.pageSize = size;
+  data.rejectedPagination.currentPage = 1;
+  loadRejectedFiles();
+};
+
+// 处理已拒绝文件页码改变
+const handleRejectedCurrentChange = (currentPage) => {
+  data.rejectedPagination.currentPage = currentPage;
+  loadRejectedFiles();
 };
 
 const formatFileSize = (size) => {
@@ -225,7 +325,10 @@ const approveFile = (file) => {
     }).then(res => {
       if (res.code === '200') {
         ElMessage.success('审核通过');
-        loadFiles(); // 重新加载数据
+        // 重新加载当前标签页数据
+        if (data.activeTab === 'pending') {
+          loadPendingFiles();
+        }
       } else {
         ElMessage.error(res.msg || '操作失败');
       }
@@ -258,7 +361,10 @@ const confirmReject = () => {
     if (res.code === '200') {
       ElMessage.success('文件已拒绝');
       data.rejectDialogVisible = false;
-      loadFiles(); // 重新加载数据
+      // 重新加载当前标签页数据
+      if (data.activeTab === 'pending') {
+        loadPendingFiles();
+      }
     } else {
       ElMessage.error(res.msg || '操作失败');
     }

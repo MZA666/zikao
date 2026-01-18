@@ -158,6 +158,15 @@ public class FileService {
     }
     
     /**
+     * 根据状态分页查询文件
+     */
+    public PageInfo<File> selectByStatusWithPage(Integer status, Integer pageNum, Integer pageSize) {
+        PageHelper.startPage(pageNum, pageSize);
+        List<File> fileList = fileMapper.selectByStatus(status);
+        return new PageInfo<>(fileList);
+    }
+    
+    /**
      * 根据共享状态查询文件
      */
     public List<File> selectBySharedStatus(Integer isShared) {
