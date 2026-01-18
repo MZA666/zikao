@@ -5,6 +5,8 @@ import com.example.enums.FileStatusEnum;
 import com.example.exception.CustomException;
 import com.example.mapper.FileMapper;
 import com.example.service.exam.SubjectService; // 修改导入路径
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -193,6 +195,47 @@ public class FileService {
      */
     public List<File> selectApprovedSharedFiles() {
         return selectApprovedSharedFiles(null);
+    }
+
+    /**
+     * 根据上传者ID分页查询文件（支持文件名模糊查询，新增专业和学科筛选）
+     */
+    public PageInfo<File> selectByUploaderIdWithPage(Integer uploaderId, Integer pageNum, Integer pageSize, String fileName, Integer majorId, Integer disciplineId) {
+        File file = new File();
+        file.setUploaderId(uploaderId);
+        if (fileName != null && !fileName.trim().isEmpty()) {
+            file.setOriginalName(fileName); // 在实体类中设置文件名，用于模糊查询
+        }
+        if (majorId != null) {
+            file.setMajorId(majorId);
+        }
+        if (disciplineId != null) {
+            file.setDisciplineId(disciplineId);
+        }
+        PageHelper.startPage(pageNum, pageSize);
+        List<File> fileList = fileMapper.selectAll(file);
+        return new PageInfo<>(fileList);
+    }
+
+    /**
+     * 分页查询已通过审核的共享文件（支持文件名、专业、学科模糊查询）
+     */
+    public PageInfo<File> selectApprovedSharedFilesWithPage(Integer pageNum, Integer pageSize, String fileName, Integer majorId, Integer disciplineId) {
+        File file = new File();
+        file.setIsShared(1); // 共享文件
+        file.setStatus(FileStatusEnum.APPROVED.getCode()); // 已通过审核
+        if (fileName != null && !fileName.trim().isEmpty()) {
+            file.setOriginalName(fileName); // 在实体类中设置文件名，用于模糊查询
+        }
+        if (majorId != null) {
+            file.setMajorId(majorId);
+        }
+        if (disciplineId != null) {
+            file.setDisciplineId(disciplineId);
+        }
+        PageHelper.startPage(pageNum, pageSize);
+        List<File> fileList = fileMapper.selectAll(file);
+        return new PageInfo<>(fileList);
     }
 
     /**

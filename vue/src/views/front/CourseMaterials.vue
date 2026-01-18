@@ -88,6 +88,16 @@
               </template>
             </el-table-column>
           </el-table>
+          <el-pagination
+            v-model:current-page="data.myFilePagination.currentPage"
+            v-model:page-size="data.myFilePagination.pageSize"
+            :total="data.myFilePagination.total"
+            @size-change="handleMyFileSizeChange"
+            @current-change="handleMyFileCurrentChange"
+            layout="total, sizes, prev, pager, next, jumper"
+            :page-sizes="[10, 20, 50, 100]"
+            style="margin-top: 20px; text-align: center;"
+          />
         </div>
       </el-tab-pane>
       <el-tab-pane label="课程仓库" name="course-warehouse">
@@ -162,6 +172,16 @@
               </template>
             </el-table-column>
           </el-table>
+          <el-pagination
+            v-model:current-page="data.sharedFilePagination.currentPage"
+            v-model:page-size="data.sharedFilePagination.pageSize"
+            :total="data.sharedFilePagination.total"
+            @size-change="handleSharedFileSizeChange"
+            @current-change="handleSharedFileCurrentChange"
+            layout="total, sizes, prev, pager, next, jumper"
+            :page-sizes="[10, 20, 50, 100]"
+            style="margin-top: 20px; text-align: center;"
+          />
         </div>
       </el-tab-pane>
       <el-tab-pane label="文件上传" name="file-upload">
@@ -292,7 +312,18 @@ const data = reactive({
   sharedFileMajorQueryStr: '', // 共享文件专业查询字符串
   sharedFileSubjectQueryStr: '', // 共享文件学科查询字符串
   majors: [], // 专业列表
-  subjects: [] // 学科列表
+  subjects: [], // 学科列表
+  // 分页相关
+  myFilePagination: {
+    currentPage: 1,
+    pageSize: 20,
+    total: 0
+  },
+  sharedFilePagination: {
+    currentPage: 1,
+    pageSize: 20,
+    total: 0
+  }
 });
 
 // 加载专业和学科数据
@@ -701,16 +732,19 @@ const uploadFile = async () => {
 const getMyFiles = () => {
   if (data.user.userId) {
     request({
-      url: '/files/myFiles',
+      url: '/files/myFiles/page',
       method: 'get',
       params: { 
         uploaderId: data.user.userId,
+        pageNum: data.myFilePagination.currentPage,
+        pageSize: data.myFilePagination.pageSize,
         majorId: data.myFileMajorQuery || undefined,
         disciplineId: data.myFileSubjectQuery || undefined
       }
     }).then(res => {
       if (res.code === '200') {
-        data.myFiles = res.data || [];
+        data.myFiles = res.data.list || [];
+        data.myFilePagination.total = res.data.total || 0;
       }
     });
   }
@@ -718,16 +752,18 @@ const getMyFiles = () => {
 
 const getSharedFiles = () => {
   request({
-    url: '/files/sharedFiles',
+    url: '/files/sharedFiles/page',
     method: 'get',
     params: { 
-      status: 1, // 只获取已审核通过的共享文件
+      pageNum: data.sharedFilePagination.currentPage,
+      pageSize: data.sharedFilePagination.pageSize,
       majorId: data.sharedFileMajorQuery || undefined,
       disciplineId: data.sharedFileSubjectQuery || undefined
     }
   }).then(res => {
     if (res.code === '200') {
-      data.sharedFiles = res.data || [];
+      data.sharedFiles = res.data.list || [];
+      data.sharedFilePagination.total = res.data.total || 0;
     }
   });
 };
@@ -773,17 +809,20 @@ const searchMyFiles = () => {
   }
   
   request({
-    url: '/files/myFiles',
+    url: '/files/myFiles/page',
     method: 'get',
     params: { 
       uploaderId: data.user.userId,
+      pageNum: data.myFilePagination.currentPage,
+      pageSize: data.myFilePagination.pageSize,
       fileName: data.myFileQuery.trim() === '' ? null : data.myFileQuery,  // 添加文件名查询参数，如果为空则传null
       majorId: majorId || undefined,
       disciplineId: disciplineId || undefined
     }
   }).then(res => {
     if (res.code === '200') {
-      data.myFiles = res.data || [];
+      data.myFiles = res.data.list || [];
+      data.myFilePagination.total = res.data.total || 0;
     } else {
       data.myFiles = [];
       ElMessage.error(res.msg || '查询失败');
@@ -835,17 +874,19 @@ const searchSharedFiles = () => {
   }
   
   request({
-    url: '/files/sharedFiles',
+    url: '/files/sharedFiles/page',
     method: 'get',
     params: { 
-      status: 1,  // 只获取已审核通过的共享文件
+      pageNum: data.sharedFilePagination.currentPage,
+      pageSize: data.sharedFilePagination.pageSize,
       fileName: data.sharedFileQuery.trim() === '' ? null : data.sharedFileQuery,  // 添加文件名查询参数，如果为空则传null
       majorId: majorId || undefined,
       disciplineId: disciplineId || undefined
     }
   }).then(res => {
     if (res.code === '200') {
-      data.sharedFiles = res.data || [];
+      data.sharedFiles = res.data.list || [];
+      data.sharedFilePagination.total = res.data.total || 0;
     } else {
       data.sharedFiles = [];
       ElMessage.error(res.msg || '查询失败');
@@ -941,12 +982,41 @@ const onTabChange = (pane) => {
   const tabName = pane.paneName;
   // 更新当前激活的标签页
   data.activeCourseTab = tabName;
+  // 重置分页参数
   if (tabName === 'my-course') {
+    data.myFilePagination.currentPage = 1;
     getMyFiles();
   } else if (tabName === 'course-warehouse') {
+    data.sharedFilePagination.currentPage = 1;
     getSharedFiles();
   }
   // 不需要为 file-upload 标签页加载特定数据
+};
+
+// 处理我的文件每页显示数量改变
+const handleMyFileSizeChange = (size) => {
+  data.myFilePagination.pageSize = size;
+  data.myFilePagination.currentPage = 1;
+  getMyFiles();
+};
+
+// 处理我的文件当前页改变
+const handleMyFileCurrentChange = (currentPage) => {
+  data.myFilePagination.currentPage = currentPage;
+  getMyFiles();
+};
+
+// 处理共享文件每页显示数量改变
+const handleSharedFileSizeChange = (size) => {
+  data.sharedFilePagination.pageSize = size;
+  data.sharedFilePagination.currentPage = 1;
+  getSharedFiles();
+};
+
+// 处理共享文件当前页改变
+const handleSharedFileCurrentChange = (currentPage) => {
+  data.sharedFilePagination.currentPage = currentPage;
+  getSharedFiles();
 };
 
 onMounted(async () => {

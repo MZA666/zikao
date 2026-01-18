@@ -10,6 +10,7 @@ import com.example.service.MajorService;
 import com.example.service.exam.SubjectService;
 import com.example.utils.FileUtil;
 import com.example.utils.WordToHtmlUtil;
+import com.github.pagehelper.PageInfo;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -195,6 +196,24 @@ public class FileController {
     }
     
     /**
+     * 学员查询自己上传的文件（分页）
+     */
+    @GetMapping("/myFiles/page")
+    public Result getMyFilesPage(@RequestParam Integer uploaderId,
+                                 @RequestParam(defaultValue = "1") Integer pageNum,
+                                 @RequestParam(defaultValue = "20") Integer pageSize,
+                                 @RequestParam(required = false) String fileName,
+                                 @RequestParam(required = false) Integer majorId,
+                                 @RequestParam(required = false) Integer disciplineId) {
+        try {
+            PageInfo<File> pageInfo = fileService.selectByUploaderIdWithPage(uploaderId, pageNum, pageSize, fileName, majorId, disciplineId);
+            return Result.success(pageInfo);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+    
+    /**
      * 查询已通过审核的共享文件（支持专业和学科筛选）
      */
     @GetMapping("/sharedFiles")
@@ -209,6 +228,23 @@ public class FileController {
             } else {
                 return Result.error("参数错误");
             }
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+    
+    /**
+     * 查询已通过审核的共享文件（分页）
+     */
+    @GetMapping("/sharedFiles/page")
+    public Result getSharedFilesPage(@RequestParam(defaultValue = "1") Integer pageNum,
+                                     @RequestParam(defaultValue = "20") Integer pageSize,
+                                     @RequestParam(required = false) String fileName,
+                                     @RequestParam(required = false) Integer majorId,
+                                     @RequestParam(required = false) Integer disciplineId) {
+        try {
+            PageInfo<File> pageInfo = fileService.selectApprovedSharedFilesWithPage(pageNum, pageSize, fileName, majorId, disciplineId);
+            return Result.success(pageInfo);
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }
