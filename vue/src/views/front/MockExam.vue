@@ -10,14 +10,20 @@
         <h3>考试配置</h3>
         <el-form :model="examConfig" label-width="120px" class="config-form">
           <el-form-item label="选择学科">
-            <el-select v-model="examConfig.subjectId" placeholder="请选择学科">
-              <el-option
-                v-for="subject in subjects"
-                :key="subject.id"
-                :label="subject.name"
-                :value="subject.id"
-              />
-            </el-select>
+            <el-autocomplete
+              v-model="examConfig.subjectName"
+              :fetch-suggestions="querySubjects"
+              placeholder="选择或输入学科"
+              clearable
+              @select="onSubjectSelect"
+              @change="onSubjectChange"
+              @clear="onSubjectClear"
+              style="width: 100%;"
+            >
+              <template #default="{ item }">
+                <div class="value">{{ item.name }}</div>
+              </template>
+            </el-autocomplete>
           </el-form-item>
           
           <el-form-item label="题目数量">
@@ -171,6 +177,7 @@ export default {
       subjects: [],
       examConfig: {
         subjectId: '',
+        subjectName: '', // 新增：用于autocomplete的学科名称
         questionCount: 20,
         questionTypes: ['SINGLE_CHOICE', 'TRUE_FALSE'],
         difficulty: '', // 添加难度筛选
@@ -210,6 +217,38 @@ export default {
     }
   },
   methods: {
+    // 查询学科建议
+    querySubjects(queryString, cb) {
+      let results = queryString ? 
+        this.subjects.filter(item => item.name.toLowerCase().indexOf(queryString.toLowerCase()) !== -1) : 
+        this.subjects;
+      cb(results);
+    },
+    
+    // 学科选择事件（当选中下拉选项时触发）
+    onSubjectSelect(item) {
+      this.examConfig.subjectId = item.id;
+      this.examConfig.subjectName = item.name;
+    },
+    
+    // 学科改变事件（当输入值改变时触发）
+    onSubjectChange(value) {
+      // 如果输入的值匹配某个学科名称，则设置对应的ID
+      const matchedSubject = this.subjects.find(subject => subject.name === value);
+      if (matchedSubject) {
+        this.examConfig.subjectId = matchedSubject.id;
+      } else {
+        // 如果输入的是自定义值，暂时清空subjectId
+        this.examConfig.subjectId = '';
+      }
+    },
+    
+    // 学科清除事件
+    onSubjectClear() {
+      this.examConfig.subjectId = '';
+      this.examConfig.subjectName = '';
+    },
+    
     // 加载学科列表
     async loadSubjects() {
       try {
@@ -690,5 +729,9 @@ export default {
 .result-content p {
   margin: 10px 0;
   font-size: 16px;
+}
+
+.el-autocomplete {
+  width: 100%;
 }
 </style>

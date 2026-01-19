@@ -8,14 +8,20 @@
     <div class="filter-section">
       <el-row :gutter="20">
         <el-col :span="8">
-          <el-select v-model="searchSubjectId" placeholder="选择学科" clearable @change="loadExamBanks">
-            <el-option
-              v-for="subject in subjects"
-              :key="subject.id"
-              :label="subject.name"
-              :value="subject.id"
-            />
-          </el-select>
+          <el-autocomplete
+            v-model="searchSubjectName"
+            :fetch-suggestions="querySubjects"
+            placeholder="选择或输入学科"
+            clearable
+            @select="onSubjectSelect"
+            @change="onSubjectChange"
+            @clear="onSubjectClear"
+            style="width: 100%;"
+          >
+            <template #default="{ item }">
+              <div class="value">{{ item.name }}</div>
+            </template>
+          </el-autocomplete>
         </el-col>
         <el-col :span="12">
           <el-input
@@ -173,6 +179,7 @@ export default {
       examBanks: [],
       subjects: [],
       searchSubjectId: '',
+      searchSubjectName: '', // 用于autocomplete的学科名称
       searchBankName: '',
       currentPage: 1,
       pageSize: 10,
@@ -211,6 +218,42 @@ export default {
       }
     },
     
+    // 查询学科建议
+    querySubjects(queryString, cb) {
+      let results = queryString ? 
+        this.subjects.filter(item => item.name.toLowerCase().indexOf(queryString.toLowerCase()) !== -1) : 
+        this.subjects;
+      cb(results);
+    },
+    
+    // 学科选择事件（当选中下拉选项时触发）
+    onSubjectSelect(item) {
+      this.searchSubjectId = item.id;
+      this.searchSubjectName = item.name;
+      this.loadExamBanks();
+    },
+    
+    // 学科改变事件（当输入值改变时触发）
+    onSubjectChange(value) {
+      // 如果输入的值匹配某个学科名称，则设置对应的ID
+      const matchedSubject = this.subjects.find(subject => subject.name === value);
+      if (matchedSubject) {
+        this.searchSubjectId = matchedSubject.id;
+      } else {
+        // 如果输入的是自定义值，暂时清空subjectId
+        this.searchSubjectId = '';
+      }
+      // 触发搜索
+      this.loadExamBanks();
+    },
+    
+    // 学科清除事件
+    onSubjectClear() {
+      this.searchSubjectId = '';
+      this.searchSubjectName = '';
+      this.loadExamBanks();
+    },
+    
     // 加载题库列表
     async loadExamBanks() {
       try {
@@ -218,6 +261,12 @@ export default {
         const params = {}
         if (this.searchSubjectId) {
           params.subjectId = this.searchSubjectId
+        } else if (this.searchSubjectName) {
+          // 如果没有找到匹配的学科ID但有学科名称，尝试用名称搜索
+          const matchedSubject = this.subjects.find(subject => subject.name === this.searchSubjectName);
+          if (matchedSubject) {
+            params.subjectId = matchedSubject.id;
+          }
         }
         
         const response = await request.get('/exam/bank/stats', { params })
@@ -235,6 +284,15 @@ export default {
             const selectedSubject = this.subjects.find(s => s.id == this.searchSubjectId);
             if (selectedSubject) {
               bankParams.subject = selectedSubject.name
+            }
+          } else if (this.searchSubjectName) {
+            // 尝试使用输入的学科名称
+            const matchedSubject = this.subjects.find(subject => subject.name === this.searchSubjectName);
+            if (matchedSubject) {
+              bankParams.subject = matchedSubject.name;
+            } else {
+              // 如果找不到精确匹配的学科，可能需要处理模糊搜索
+              bankParams.subject = this.searchSubjectName;
             }
           }
           
@@ -271,6 +329,12 @@ export default {
         const params = {}
         if (this.searchSubjectId) {
           params.subjectId = this.searchSubjectId
+        } else if (this.searchSubjectName) {
+          // 如果没有找到匹配的学科ID但有学科名称，尝试查找
+          const matchedSubject = this.subjects.find(subject => subject.name === this.searchSubjectName);
+          if (matchedSubject) {
+            params.subjectId = matchedSubject.id;
+          }
         }
         
         const response = await request.get('/exam/question/stats-by-uploader', { params })
@@ -638,5 +702,9 @@ export default {
 .pagination {
   text-align: center;
   margin-top: 20px;
+}
+
+.el-autocomplete {
+  width: 100%;
 }
 </style>

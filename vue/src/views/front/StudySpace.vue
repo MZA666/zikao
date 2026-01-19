@@ -58,14 +58,20 @@
       <div class="filter-section">
         <el-row :gutter="20">
           <el-col :span="8">
-            <el-select v-model="searchBankSubjectId" placeholder="选择学科" clearable @change="filterCollectedBanks">
-              <el-option
-                v-for="subject in subjects"
-                :key="subject.id"
-                :label="subject.name"
-                :value="subject.id"
-              />
-            </el-select>
+            <el-autocomplete
+              v-model="searchBankSubjectName"
+              :fetch-suggestions="querySubjects"
+              placeholder="选择或输入学科"
+              clearable
+              @select="onSubjectSelect"
+              @change="onSubjectChange"
+              @clear="onSubjectClear"
+              style="width: 100%;"
+            >
+              <template #default="{ item }">
+                <div class="value">{{ item.name }}</div>
+              </template>
+            </el-autocomplete>
           </el-col>
           <el-col :span="16">
             <el-input
@@ -203,6 +209,7 @@ export default {
       // 添加收藏题库的相关数据
       collectedBanks: [], // 收藏的题库列表
       searchBankSubjectId: '',
+      searchBankSubjectName: '', // 新增：用于autocomplete的学科名称
       searchBankName: '',
       filteredCollectedBanks: []
     }
@@ -246,6 +253,42 @@ export default {
       } catch (error) {
         console.error('加载学科列表失败:', error)
       }
+    },
+    
+    // 查询学科建议
+    querySubjects(queryString, cb) {
+      let results = queryString ? 
+        this.subjects.filter(item => item.name.toLowerCase().indexOf(queryString.toLowerCase()) !== -1) : 
+        this.subjects;
+      cb(results);
+    },
+    
+    // 学科选择事件（当选中下拉选项时触发）
+    onSubjectSelect(item) {
+      this.searchBankSubjectId = item.id;
+      this.searchBankSubjectName = item.name;
+      this.filterCollectedBanks();
+    },
+    
+    // 学科改变事件（当输入值改变时触发）
+    onSubjectChange(value) {
+      // 如果输入的值匹配某个学科名称，则设置对应的ID
+      const matchedSubject = this.subjects.find(subject => subject.name === value);
+      if (matchedSubject) {
+        this.searchBankSubjectId = matchedSubject.id;
+      } else {
+        // 如果输入的是自定义值，暂时清空subjectId
+        this.searchBankSubjectId = '';
+      }
+      // 触发过滤
+      this.filterCollectedBanks();
+    },
+    
+    // 学科清除事件
+    onSubjectClear() {
+      this.searchBankSubjectId = '';
+      this.searchBankSubjectName = '';
+      this.filterCollectedBanks();
     },
     
     // 加载收藏的题目
@@ -519,9 +562,21 @@ export default {
     // 过滤收藏的题库
     filterCollectedBanks() {
       this.filteredCollectedBanks = this.collectedBanks.filter(bank => {
-        const matchesSubject = !this.searchBankSubjectId || bank.subjectId == this.searchBankSubjectId
+        // 检查学科匹配 - 优先使用ID匹配，如果ID未设置，则尝试名称匹配
+        let matchesSubject = true;
+        if (this.searchBankSubjectId) {
+          // 如果设置了学科ID，则按ID匹配
+          matchesSubject = bank.subjectId == this.searchBankSubjectId;
+        } else if (this.searchBankSubjectName) {
+          // 如果设置了学科名称但没有ID，则按名称匹配
+          const subjectName = this.getSubjectName(bank.subjectId);
+          matchesSubject = subjectName && subjectName.toLowerCase().includes(this.searchBankSubjectName.toLowerCase());
+        }
+        
+        // 检查题库名称匹配
         const matchesName = !this.searchBankName || 
-                           (bank.bankName && bank.bankName.toLowerCase().includes(this.searchBankName.toLowerCase()))
+                           (bank.bankName && bank.bankName.toLowerCase().includes(this.searchBankName.toLowerCase()));
+                           
         return matchesSubject && matchesName
       })
     }
@@ -719,5 +774,9 @@ export default {
   text-align: center;
   padding: 40px;
   color: #999;
+}
+
+.el-autocomplete {
+  width: 100%;
 }
 </style>

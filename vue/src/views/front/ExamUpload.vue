@@ -14,14 +14,20 @@
           <el-tab-pane label="文件上传" name="file">
             <el-form :model="uploadForm" label-width="120px" class="upload-form">
               <el-form-item label="选择学科">
-                <el-select v-model="uploadForm.subjectId" placeholder="请选择学科">
-                  <el-option
-                    v-for="subject in subjects"
-                    :key="subject.id"
-                    :label="subject.name"
-                    :value="subject.id"
-                  />
-                </el-select>
+                <el-autocomplete
+                  v-model="uploadForm.subjectName"
+                  :fetch-suggestions="querySubjects"
+                  placeholder="选择或输入学科"
+                  clearable
+                  @select="onSubjectSelect"
+                  @change="onSubjectChange"
+                  @clear="onSubjectClear"
+                  style="width: 100%;"
+                >
+                  <template #default="{ item }">
+                    <div class="value">{{ item.name }}</div>
+                  </template>
+                </el-autocomplete>
               </el-form-item>
               
               <el-form-item label="上传文件">
@@ -60,14 +66,20 @@
             <div class="form-upload-section">
               <el-form :model="questionForm" label-width="120px" class="question-form">
                 <el-form-item label="选择学科">
-                  <el-select v-model="questionForm.subjectId" placeholder="请选择学科">
-                    <el-option
-                      v-for="subject in subjects"
-                      :key="subject.id"
-                      :label="subject.name"
-                      :value="subject.id"
-                    />
-                  </el-select>
+                  <el-autocomplete
+                    v-model="questionForm.subjectName"
+                    :fetch-suggestions="querySubjects"
+                    placeholder="选择或输入学科"
+                    clearable
+                    @select="onQuestionSubjectSelect"
+                    @change="onQuestionSubjectChange"
+                    @clear="onQuestionSubjectClear"
+                    style="width: 100%;"
+                  >
+                    <template #default="{ item }">
+                      <div class="value">{{ item.name }}</div>
+                    </template>
+                  </el-autocomplete>
                 </el-form-item>
                 
                 <el-form-item label="题目类型">
@@ -211,10 +223,12 @@ export default {
       currentUser: {}, // 当前登录用户信息
       subjects: [],
       uploadForm: {
-        subjectId: ''
+        subjectId: '',
+        subjectName: '' // 新增：用于autocomplete的学科名称
       },
       questionForm: { // 新增：表单上传题目表单
         subjectId: '',
+        subjectName: '', // 新增：用于autocomplete的学科名称
         type: '',
         content: '',
         answer: '',
@@ -291,6 +305,62 @@ D.图形显示屏（消防设施）
     this.loadSubjects()
   },
   methods: {
+    // 查询学科建议
+    querySubjects(queryString, cb) {
+      let results = queryString ? 
+        this.subjects.filter(item => item.name.toLowerCase().indexOf(queryString.toLowerCase()) !== -1) : 
+        this.subjects;
+      cb(results);
+    },
+    
+    // 学科选择事件（当选中下拉选项时触发）
+    onSubjectSelect(item) {
+      this.uploadForm.subjectId = item.id;
+      this.uploadForm.subjectName = item.name;
+    },
+    
+    // 学科改变事件（当输入值改变时触发）
+    onSubjectChange(value) {
+      // 如果输入的值匹配某个学科名称，则设置对应的ID
+      const matchedSubject = this.subjects.find(subject => subject.name === value);
+      if (matchedSubject) {
+        this.uploadForm.subjectId = matchedSubject.id;
+      } else {
+        // 如果输入的是自定义值，暂时清空subjectId
+        this.uploadForm.subjectId = '';
+      }
+    },
+    
+    // 学科清除事件
+    onSubjectClear() {
+      this.uploadForm.subjectId = '';
+      this.uploadForm.subjectName = '';
+    },
+    
+    // 问题表单的学科选择事件
+    onQuestionSubjectSelect(item) {
+      this.questionForm.subjectId = item.id;
+      this.questionForm.subjectName = item.name;
+    },
+    
+    // 问题表单的学科改变事件
+    onQuestionSubjectChange(value) {
+      // 如果输入的值匹配某个学科名称，则设置对应的ID
+      const matchedSubject = this.subjects.find(subject => subject.name === value);
+      if (matchedSubject) {
+        this.questionForm.subjectId = matchedSubject.id;
+      } else {
+        // 如果输入的是自定义值，暂时清空subjectId
+        this.questionForm.subjectId = '';
+      }
+    },
+    
+    // 问题表单的学科清除事件
+    onQuestionSubjectClear() {
+      this.questionForm.subjectId = '';
+      this.questionForm.subjectName = '';
+    },
+    
     // 加载当前用户信息
     loadCurrentUser() {
       const userData = localStorage.getItem('system-user');
@@ -495,6 +565,7 @@ D.图形显示屏（消防设施）
     clearQuestionForm() {
       this.questionForm = {
         subjectId: '',
+        subjectName: '',
         type: '',
         content: '',
         answer: '',
@@ -680,5 +751,9 @@ D.图形显示屏（消防设施）
   font-size: 13px;
   line-height: 1.5;
   color: #303133;
+}
+
+.el-autocomplete {
+  width: 100%;
 }
 </style>
