@@ -3,9 +3,10 @@ package com.example.controller.exam;
 import com.example.common.Result;
 import com.example.entity.exam.Question;
 import com.example.entity.exam.QuestionOption;
+import com.example.service.exam.AiQuestionParseService;
 import com.example.service.exam.QuestionOptionService;
 import com.example.service.exam.QuestionService;
-import com.example.utils.WordExamParserUtil;
+import com.example.utils.FileUtil;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,6 +25,9 @@ public class ExamUploadController {
     
     @Resource
     private QuestionOptionService optionService;
+    
+    @Resource
+    private AiQuestionParseService aiQuestionParseService;
 
     /**
      * 上传Word题库文件
@@ -40,8 +44,10 @@ public class ExamUploadController {
 
         // 检查文件类型
         String fileName = file.getOriginalFilename();
-        if (fileName == null || (!fileName.toLowerCase().endsWith(".doc") && !fileName.toLowerCase().endsWith(".docx"))) {
-            return Result.error("只支持.doc和.docx格式的文件");
+        if (fileName == null || (!fileName.toLowerCase().endsWith(".doc") && 
+                                 !fileName.toLowerCase().endsWith(".docx") && 
+                                 !fileName.toLowerCase().endsWith(".txt"))) {
+            return Result.error("只支持.doc、.docx和.txt格式的文件");
         }
 
         // 验证必要参数
@@ -59,8 +65,8 @@ public class ExamUploadController {
             // 保存上传的文件到临时位置
             file.transferTo(tempFile);
 
-            // 解析Word文件中的题目
-            List<Question> questions = WordExamParserUtil.parseExamQuestions(tempFile.getAbsolutePath());
+            // 使用AI解析服务解析题目
+            List<Question> questions = aiQuestionParseService.parseQuestionsFromFile(tempFile.getAbsolutePath());
 
             if (questions.isEmpty()) {
                 return Result.error("未从文件中解析到任何题目");
@@ -81,8 +87,17 @@ public class ExamUploadController {
                 if (question.getDifficulty() == null) {
                     question.setDifficulty("MEDIUM");
                 }
+                
+                // 先保存题目
                 int result = questionService.insert(question);
                 if (result > 0) {
+                    // 如果有选项，保存选项
+                    if (question.getOptions() != null && !question.getOptions().isEmpty()) {
+                        for (QuestionOption option : question.getOptions()) {
+                            option.setQuestionId(question.getId()); // 设置题目ID
+                            optionService.insert(option);
+                        }
+                    }
                     successCount++;
                 }
             }

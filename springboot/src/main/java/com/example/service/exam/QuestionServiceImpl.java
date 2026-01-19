@@ -84,9 +84,7 @@ public class QuestionServiceImpl implements QuestionService {
         return questionMapper.selectByIds(ids);
     }
 
-    /**
-     * 插入题目及其选项
-     */
+    @Override
     public int insertQuestionWithOptions(Question question, List<QuestionOption> options) {
         // 先插入题目
         int result = questionMapper.insert(question);

@@ -64,4 +64,9 @@ public interface QuestionService {
      * 根据ID列表查询题目
      */
     List<Question> selectByIds(List<Integer> ids);
+    
+    /**
+     * 插入题目及其选项
+     */
+    int insertQuestionWithOptions(Question question, List<com.example.entity.exam.QuestionOption> options);
 }
