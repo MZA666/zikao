@@ -65,4 +65,14 @@ public interface PostMapper {
      * 更新帖子下架状态和原因
      */
     int updateOfflineStatus(@Param("id") Integer id, @Param("offlineReason") String offlineReason);
+
+    /**
+     * 根据关键词搜索帖子（标题和内容）
+     */
+    List<Post> searchPosts(@Param("keyword") String keyword);
+
+    /**
+     * 根据关键词搜索指定用户的帖子（标题和内容）
+     */
+    List<Post> searchMyPosts(@Param("userId") Integer userId, @Param("keyword") String keyword);
 }

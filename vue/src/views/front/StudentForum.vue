@@ -2,6 +2,18 @@
   <div class="student-forum-container">
     <h3>学员论坛</h3>
     
+    <!-- 搜索框 -->
+    <div class="search-box">
+      <el-input
+        v-model="searchQuery"
+        placeholder="请输入搜索关键词，将同时搜索标题和内容"
+        @input="performSearch"
+        clearable
+      >
+        <template #prepend>搜索</template>
+      </el-input>
+    </div>
+    
     <!-- 选项卡 -->
     <el-tabs v-model="activeTab" class="forum-tabs" @tab-click="onTabChange">
       <el-tab-pane label="交流论坛" name="discussion"></el-tab-pane>
@@ -30,7 +42,8 @@
       </div>
       
       <div v-if="discussionPosts.length === 0" class="empty-state">
-        暂无帖子，快来发布第一篇吧！
+        <div v-if="searchQuery">未找到匹配的帖子</div>
+        <div v-else>暂无帖子，快来发布第一篇吧！</div>
       </div>
     </div>
     
@@ -53,7 +66,8 @@
       </div>
       
       <div v-if="myPosts.length === 0" class="empty-state">
-        暂无发帖记录
+        <div v-if="searchQuery">未找到匹配的帖子</div>
+        <div v-else>暂无发帖记录</div>
       </div>
     </div>
     
@@ -119,6 +133,9 @@ const showPostDialog = ref(false)
 const showPostDetailDialog = ref(false)
 const currentPostDetail = ref({})
 const editorRef = shallowRef()
+
+// 搜索相关变量
+const searchQuery = ref('')
 
 // 发帖表单
 const postForm = reactive({
@@ -281,7 +298,17 @@ const getStatusClass = (status) => {
 // 加载交流论坛帖子
 const loadDiscussionPosts = async () => {
   try {
-    const response = await request.get('/post/published')
+    let response;
+    if (searchQuery.value) {
+      // 使用后端搜索功能
+      response = await request.get('/post/search', {
+        params: { 
+          keyword: searchQuery.value 
+        }
+      })
+    } else {
+      response = await request.get('/post/published')
+    }
     discussionPosts.value = response.data || []
   } catch (error) {
     console.error('加载交流论坛帖子失败:', error)
@@ -297,9 +324,20 @@ const loadMyPosts = async () => {
       return
     }
     
-    const response = await request.get('/post/my-posts', {
-      params: { userId: userInfo.user_id }
-    })
+    let response;
+    if (searchQuery.value) {
+      // 使用后端搜索功能搜索我的帖子
+      response = await request.get('/post/my-posts-search', {
+        params: { 
+          userId: userInfo.user_id,
+          keyword: searchQuery.value 
+        }
+      })
+    } else {
+      response = await request.get('/post/my-posts', {
+        params: { userId: userInfo.user_id }
+      })
+    }
     myPosts.value = response.data || []
   } catch (error) {
     console.error('加载我的帖子失败:', error)
@@ -421,6 +459,16 @@ const resetPostForm = () => {
   postForm.status = 0
 }
 
+// 执行搜索
+const performSearch = async () => {
+  // 根据当前选项卡重新加载数据，利用load函数中的后端搜索逻辑
+  if (activeTab.value === 'discussion') {
+    await loadDiscussionPosts()
+  } else if (activeTab.value === 'my-posts') {
+    await loadMyPosts()
+  }
+}
+
 // 监听选项卡切换
 const onTabChange = async (tabPane) => {
   if (activeTab.value === 'discussion') {
@@ -452,6 +500,11 @@ onMounted(async () => {
   padding: 20px 0;
   max-width: 1000px;
   margin: 0 auto;
+}
+
+.search-box {
+  margin-bottom: 20px;
+  max-width: 600px;
 }
 
 .forum-tabs {

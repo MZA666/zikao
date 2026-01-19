@@ -55,4 +55,14 @@ public interface PostService {
      * 更新帖子下架状态和原因
      */
     void updateOfflineStatus(Integer id, String offlineReason);
+
+    /**
+     * 根据关键词搜索帖子（标题和内容）
+     */
+    List<Post> searchPosts(String keyword);
+
+    /**
+     * 根据关键词搜索指定用户的帖子（标题和内容）
+     */
+    List<Post> searchMyPosts(Integer userId, String keyword);
 }

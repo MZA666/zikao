@@ -64,6 +64,24 @@ public class PostController {
     }
 
     /**
+     * 学员端 - 根据关键词搜索已发布的帖子（标题和内容）
+     */
+    @GetMapping("/search")
+    public Result searchPublishedPosts(@RequestParam String keyword) {
+        List<Post> posts = postService.searchPosts(keyword);
+        return Result.success(posts);
+    }
+
+    /**
+     * 学员端 - 根据关键词搜索我的帖子（标题和内容）
+     */
+    @GetMapping("/my-posts-search")
+    public Result searchMyPosts(@RequestParam Integer userId, @RequestParam String keyword) {
+        List<Post> posts = postService.searchMyPosts(userId, keyword);
+        return Result.success(posts);
+    }
+
+    /**
      * 管理端 - 分页查询帖子
      */
     @GetMapping("/manage/page")

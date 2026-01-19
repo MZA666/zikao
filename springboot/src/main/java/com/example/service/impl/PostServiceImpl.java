@@ -68,4 +68,14 @@ public class PostServiceImpl implements PostService {
     public void updateOfflineStatus(Integer id, String offlineReason) {
         postMapper.updateOfflineStatus(id, offlineReason);
     }
+
+    @Override
+    public List<Post> searchPosts(String keyword) {
+        return postMapper.searchPosts(keyword);
+    }
+
+    @Override
+    public List<Post> searchMyPosts(Integer userId, String keyword) {
+        return postMapper.searchMyPosts(userId, keyword);
+    }
 }
