@@ -392,6 +392,10 @@ export default {
             this.$message.error(response.msg || '收藏失败')
           }
         }
+        
+        // 收藏状态变更后，重新检查收藏状态以确保界面立即更新
+        await this.$nextTick(); // 等待DOM更新完成
+        this.checkCollectionStatus();
       } catch (error) {
         console.error('收藏操作失败:', error)
         this.$message.error('收藏操作失败')
@@ -412,6 +416,13 @@ export default {
       if (!date) return '未知'
       const d = new Date(date)
       return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`
+    },
+    
+    // 重新加载题库列表及收藏状态
+    async refreshExamBanks() {
+      await this.loadExamBanks();
+      await this.$nextTick(); // 等待DOM更新完成
+      this.checkCollectionStatus();
     },
     
     // 开始练习
@@ -507,12 +518,12 @@ export default {
     // 分页相关方法
     handleSizeChange(newSize) {
       this.pageSize = newSize
-      this.loadExamBanks()
+      this.refreshExamBanks()
     },
     
     handleCurrentChange(newPage) {
       this.currentPage = newPage
-      this.loadExamBanks()
+      this.refreshExamBanks()
     }
   }
 }
