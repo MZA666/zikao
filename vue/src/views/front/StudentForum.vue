@@ -422,7 +422,7 @@ const resetPostForm = () => {
 }
 
 // 监听选项卡切换
-const onTabChange = async () => {
+const onTabChange = async (tabPane) => {
   if (activeTab.value === 'discussion') {
     await loadDiscussionPosts()
   } else if (activeTab.value === 'my-posts') {
