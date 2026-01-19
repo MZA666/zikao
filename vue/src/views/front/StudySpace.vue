@@ -251,7 +251,15 @@ export default {
     // 加载收藏的题目
     async loadCollectedQuestions() {
       try {
-        const userId = localStorage.getItem('userId')
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+          try {
+            const systemUser = JSON.parse(localStorage.getItem('system-user'));
+            userId = systemUser?.userId;
+          } catch (e) {
+            console.error('解析用户信息失败:', e);
+          }
+        }
         if (!userId) {
           this.$message.error('请先登录')
           return
