@@ -149,6 +149,7 @@
             <el-radio-group
               v-else
               v-model="userAnswers[currentQuestionIndex]"
+              @change="onSingleChoiceAnswerChange"
             >
               <el-radio
                 v-for="option in currentPracticeQuestion.options"
@@ -177,11 +178,37 @@
               placeholder="请输入答案"
             />
           </div>
+          
+          <!-- 显示答案和解析 -->
+          <div v-if="showAnswer" class="answer-section">
+            <div class="correct-answer">
+              <strong>正确答案：</strong>
+              <span v-if="currentPracticeQuestion.type === 'SINGLE_CHOICE' || currentPracticeQuestion.type === 'MULTIPLE_CHOICE'">
+                {{ formatAnswer(currentPracticeQuestion.answer) }}
+              </span>
+              <span v-else-if="currentPracticeQuestion.type === 'TRUE_FALSE'">
+                {{ currentPracticeQuestion.answer }}
+              </span>
+              <span v-else>
+                {{ currentPracticeQuestion.answer }}
+              </span>
+            </div>
+            <div v-if="currentPracticeQuestion.analysis" class="analysis">
+              <strong>解析：</strong>{{ currentPracticeQuestion.analysis }}
+            </div>
+            <div class="check-answer-status">
+              <el-tag :type="checkAnswerCorrect() ? 'success' : 'danger'">
+                {{ checkAnswerCorrect() ? '回答正确' : '回答错误' }}
+              </el-tag>
+            </div>
+          </div>
         </div>
         
         <div class="practice-actions">
           <el-button @click="prevQuestion" :disabled="currentQuestionIndex === 0">上一题</el-button>
           <el-button @click="nextQuestion" :disabled="currentQuestionIndex === currentPracticeQuestions.length - 1">下一题</el-button>
+          <el-button v-if="!showAnswer" type="primary" @click="showCorrectAnswer">显示答案</el-button>
+          <el-button v-else type="primary" @click="hideAnswer">隐藏答案</el-button>
           <el-button v-if="currentQuestionIndex === currentPracticeQuestions.length - 1" type="primary" @click="submitPractice">提交</el-button>
         </div>
       </div>
@@ -211,7 +238,8 @@ export default {
       searchBankSubjectId: '',
       searchBankSubjectName: '', // 新增：用于autocomplete的学科名称
       searchBankName: '',
-      filteredCollectedBanks: []
+      filteredCollectedBanks: [],
+      showAnswer: false // 是否显示答案
     }
   },
   computed: {
@@ -227,6 +255,27 @@ export default {
     this.loadCollectedQuestions()
     // 加载收藏的题库
     this.loadCollectedBanks()
+  },
+  data() {
+    return {
+      subjects: [],
+      collectedQuestions: [], // 收藏的题目ID列表
+      allQuestions: [], // 所有题目详情
+      searchSubjectId: '',
+      searchType: '',
+      practiceDialogVisible: false,
+      currentPracticeQuestions: [],
+      currentQuestionIndex: 0,
+      userAnswers: [],
+      collectedQuestionsWithDetails: [], // 包含题目详情的收藏列表
+      // 添加收藏题库的相关数据
+      collectedBanks: [], // 收藏的题库列表
+      searchBankSubjectId: '',
+      searchBankSubjectName: '', // 新增：用于autocomplete的学科名称
+      searchBankName: '',
+      filteredCollectedBanks: [],
+      showAnswer: false // 是否显示答案
+    }
   },
   computed: {
     currentPracticeQuestion() {
@@ -354,19 +403,19 @@ export default {
         }
         console.log('当前用户ID:', userId);
         if (!userId) {
-          return
+          return;
         }
-        
-        const response = await request.get(`/exam/bank/user/${userId}/collections`)
+
+        const response = await request.get(`/exam/bank/user/${userId}/with-major-subject`);
         console.log('收藏题库接口返回数据:', response);
         // 确保返回的数据是数组格式
-        this.collectedBanks = Array.isArray(response.data) ? response.data : response.data || []
+        this.collectedBanks = Array.isArray(response.data) ? response.data : response.data || [];
         console.log('处理后的收藏题库数据:', this.collectedBanks);
-        
+
         // 过滤收藏的题库
-        this.filterCollectedBanks()
+        this.filterCollectedBanks();
       } catch (error) {
-        console.error('加载收藏题库失败:', error)
+        console.error('加载收藏题库失败:', error);
       }
     },
     
@@ -579,6 +628,60 @@ export default {
                            
         return matchesSubject && matchesName
       })
+    },
+    
+    // 当用户选择单选题答案时触发
+    onSingleChoiceAnswerChange() {
+      // 单选题用户作答后自动显示答案
+      if (this.userAnswers[this.currentQuestionIndex] !== '') {
+        this.showAnswer = true
+      }
+    },
+    
+    // 显示正确答案
+    showCorrectAnswer() {
+      this.showAnswer = true
+    },
+    
+    // 隐藏答案
+    hideAnswer() {
+      this.showAnswer = false
+    },
+    
+    // 格式化答案显示
+    formatAnswer(answer) {
+      if (Array.isArray(answer)) {
+        return answer.join(', ')
+      }
+      return answer
+    },
+    
+    // 检查答案是否正确
+    checkAnswerCorrect() {
+      const userAnswer = this.userAnswers[this.currentQuestionIndex]
+      const correctAnswer = this.currentPracticeQuestion.answer
+      
+      if (Array.isArray(userAnswer) && Array.isArray(correctAnswer)) {
+        return userAnswer.sort().join(',') === correctAnswer.sort().join(',')
+      } else {
+        return userAnswer === correctAnswer
+      }
+    },
+    
+    // 上一题
+    prevQuestion() {
+      if (this.currentQuestionIndex > 0) {
+        this.currentQuestionIndex--
+        this.showAnswer = false // 切换题目时隐藏答案
+      }
+    },
+    
+    // 下一题
+    nextQuestion() {
+      if (this.currentQuestionIndex < this.currentPracticeQuestions.length - 1) {
+        this.currentQuestionIndex++
+        this.showAnswer = false // 切换题目时隐藏答案
+      }
     }
   }
 }
@@ -695,6 +798,52 @@ export default {
 
 .practice-actions .el-button {
   margin: 0 10px;
+}
+
+.answer-section {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border-left: 4px solid #409eff;
+}
+
+.correct-answer {
+  margin-bottom: 10px;
+}
+
+.analysis {
+  margin-bottom: 10px;
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.check-answer-status {
+  text-align: right;
+}
+
+.answer-section {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border-left: 4px solid #409eff;
+}
+
+.correct-answer {
+  margin-bottom: 10px;
+}
+
+.analysis {
+  margin-bottom: 10px;
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.check-answer-status {
+  text-align: right;
 }
 
 .empty-message {

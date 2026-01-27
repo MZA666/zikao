@@ -46,7 +46,7 @@
         shadow="hover"
       >
         <div class="bank-header">
-          <h3 class="bank-name">{{ bank.bankName || getSubjectName(bank.subjectId) + '题库' }}</h3>
+          <h3 class="bank-name">{{ bank.bankName || (bank.subject ? bank.subject + '题库' : getSubjectName(bank.subjectId) + '题库') }}</h3>
           <div class="bank-actions">
             <el-button size="small" type="primary" @click="startPractice(bank)">练习</el-button>
             <el-button size="small" type="warning" @click="collectBank(bank)" :loading="isCollecting[bank.bankId]">
@@ -57,7 +57,11 @@
         <div class="bank-info">
           <div class="info-item">
             <span class="label">学科：</span>
-            <span class="value">{{ getSubjectName(bank.subjectId) }}</span>
+            <span class="value">{{ bank.subject || getSubjectName(bank.subjectId) }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">专业：</span>
+            <span class="value">{{ bank.majorName || getMajorName(bank.majorId) }}</span>
           </div>
           <div class="info-item">
             <span class="label">题目数量：</span>
@@ -126,6 +130,7 @@
             <el-radio-group
               v-else
               v-model="userAnswers[currentQuestionIndex]"
+              @change="onSingleChoiceAnswerChange"
             >
               <el-radio
                 v-for="option in currentQuestion.options"
@@ -154,11 +159,37 @@
               placeholder="请输入答案"
             />
           </div>
+          
+          <!-- 显示答案和解析 -->
+          <div v-if="showAnswer" class="answer-section">
+            <div class="correct-answer">
+              <strong>正确答案：</strong>
+              <span v-if="currentQuestion.type === 'SINGLE_CHOICE' || currentQuestion.type === 'MULTIPLE_CHOICE'">
+                {{ formatAnswer(currentQuestion.answer) }}
+              </span>
+              <span v-else-if="currentQuestion.type === 'TRUE_FALSE'">
+                {{ currentQuestion.answer }}
+              </span>
+              <span v-else>
+                {{ currentQuestion.answer }}
+              </span>
+            </div>
+            <div v-if="currentQuestion.analysis" class="analysis">
+              <strong>解析：</strong>{{ currentQuestion.analysis }}
+            </div>
+            <div class="check-answer-status">
+              <el-tag :type="checkAnswerCorrect() ? 'success' : 'danger'">
+                {{ checkAnswerCorrect() ? '回答正确' : '回答错误' }}
+              </el-tag>
+            </div>
+          </div>
         </div>
         
         <div class="practice-actions">
           <el-button @click="prevQuestion" :disabled="currentQuestionIndex === 0">上一题</el-button>
           <el-button @click="nextQuestion" :disabled="currentQuestionIndex === currentBankQuestions.length - 1">下一题</el-button>
+          <el-button v-if="!showAnswer" type="primary" @click="showCorrectAnswer">显示答案</el-button>
+          <el-button v-else type="primary" @click="hideAnswer">隐藏答案</el-button>
           <el-button v-if="currentQuestionIndex === currentBankQuestions.length - 1" type="primary" @click="submitPractice">提交</el-button>
         </div>
       </div>
@@ -192,7 +223,8 @@ export default {
       currentQuestion: {},
       // 新增收藏相关的数据
       isCollected: {}, // 记录题库是否已被收藏
-      isCollecting: {} // 记录正在收藏的题库
+      isCollecting: {}, // 记录正在收藏的题库
+      showAnswer: false // 是否显示答案
     }
   },
   computed: {
@@ -203,6 +235,7 @@ export default {
   },
   created() {
     this.loadSubjects()
+    this.loadMajors() // 加载专业列表
     this.loadExamBanks()
     // 检查收藏状态
     this.checkCollectionStatus()
@@ -215,6 +248,19 @@ export default {
         this.subjects = response.data
       } catch (error) {
         console.error('加载学科列表失败:', error)
+      }
+    },
+
+    // 加载专业列表
+    async loadMajors() {
+      try {
+        // 使用正确的API端点来获取专业列表
+        const response = await request.get('/major-management/majors')
+        this.majors = response.data || []
+      } catch (error) {
+        console.error('加载专业列表失败:', error)
+        // 如果API不存在或出错，初始化为空数组
+        this.majors = []
       }
     },
     
@@ -257,8 +303,13 @@ export default {
     // 加载题库列表
     async loadExamBanks() {
       try {
-        // 首先尝试从题库统计接口获取数据
-        const params = {}
+        // 从exam_bank表查询相关记录
+        const params = {
+          pageNum: this.currentPage,
+          pageSize: this.pageSize
+        }
+        
+        // 添加搜索条件
         if (this.searchSubjectId) {
           params.subjectId = this.searchSubjectId
         } else if (this.searchSubjectName) {
@@ -269,48 +320,54 @@ export default {
           }
         }
         
-        const response = await request.get('/exam/bank/stats', { params })
-        let examBanks = Array.isArray(response.data) ? response.data : response.data || []
+        if (this.searchBankName) {
+          params.bankName = this.searchBankName
+        }
         
-        // 如果通过统计接口没有获取到数据，尝试从bank/list接口获取
+        // 优先从exam_bank表获取数据
+        const response = await request.get('/exam/bank/list', { params })
+        
+        // 检查响应是否包含分页信息
+        let examBanks = []
+        let totalCount = 0
+        
+        if (response.data && response.data.list !== undefined) {
+          // 有分页信息
+          examBanks = response.data.list || []
+          totalCount = response.data.total || 0
+          this.currentPage = response.data.pageNum || 1
+          this.pageSize = response.data.pageSize || 10
+        } else {
+          // 没有分页信息，直接是数组
+          examBanks = Array.isArray(response.data) ? response.data : response.data || []
+          totalCount = examBanks.length
+        }
+        
+        // 如果没有获取到数据，尝试使用统计接口
         if (!examBanks || examBanks.length === 0) {
-          const bankParams = {
-            pageNum: this.currentPage,
-            pageSize: this.pageSize
-          }
-          
-          // 如果选择了学科，通过学科名称查询
+          const statsParams = {}
           if (this.searchSubjectId) {
-            const selectedSubject = this.subjects.find(s => s.id == this.searchSubjectId);
-            if (selectedSubject) {
-              bankParams.subject = selectedSubject.name
-            }
+            statsParams.subjectId = this.searchSubjectId
           } else if (this.searchSubjectName) {
-            // 尝试使用输入的学科名称
             const matchedSubject = this.subjects.find(subject => subject.name === this.searchSubjectName);
             if (matchedSubject) {
-              bankParams.subject = matchedSubject.name;
-            } else {
-              // 如果找不到精确匹配的学科，可能需要处理模糊搜索
-              bankParams.subject = this.searchSubjectName;
+              statsParams.subjectId = matchedSubject.id;
             }
           }
           
-          if (this.searchBankName) {
-            bankParams.bankName = this.searchBankName
-          }
-          
-          const bankResponse = await request.get('/exam/bank/list', { bankParams })
-          examBanks = Array.isArray(bankResponse.data.list) ? bankResponse.data.list : bankResponse.data || []
+          const statsResponse = await request.get('/exam/bank/stats', { params: statsParams })
+          examBanks = Array.isArray(statsResponse.data) ? statsResponse.data : statsResponse.data || []
+          totalCount = examBanks.length
         }
         
         // 如果仍然没有数据，通过题目统计构建虚拟题库
         if (!examBanks || examBanks.length === 0) {
           examBanks = await this.loadFromQuestionStats()
+          totalCount = examBanks.length
         }
         
         this.examBanks = examBanks
-        this.total = this.examBanks.length
+        this.total = totalCount
         
         // 检查收藏状态
         this.checkCollectionStatus()
@@ -340,20 +397,33 @@ export default {
         const response = await request.get('/exam/question/stats-by-uploader', { params })
         const stats = Array.isArray(response.data) ? response.data : response.data || []
         
-        // 转换为题库列表
-        const examBanks = stats.map((stat, index) => {
-          const subject = this.subjects.find(s => s.id === stat.subjectId)
-          return {
-            bankId: `virtual_${stat.subjectId}_${stat.uploaderId || 'unknown'}`, // 使用虚拟ID
-            subjectId: stat.subjectId,
-            bankName: stat.subjectName ? `${stat.subjectName} - ${stat.uploader || '未知上传者'}` : `题库 - ${stat.uploader || '未知上传者'}`,
-            questionCount: stat.questionCount,
-            uploadTime: null, // 虚拟题库暂无上传时间
-            uploader: stat.uploader || '未知',
-            uploaderId: stat.uploaderId,
-            description: `${stat.subjectName || '该学科'}由${stat.uploader || '未知用户'}上传的${stat.questionCount}道题目`
+        // 从exam_bank表查询实际存在的题库
+        const allBanksResponse = await request.get('/exam/bank/list', { 
+          params: { 
+            pageNum: 1, 
+            pageSize: 1000 // 获取所有题库
+          } 
+        });
+        
+        const allBanks = allBanksResponse.data?.list || allBanksResponse.data || [];
+        
+        // 将统计信息与实际题库匹配
+        const examBanks = stats.map(stat => {
+          // 尝试找到匹配的实际题库
+          const matchingBank = allBanks.find(bank => 
+            bank.subjectId === stat.subjectId && 
+            (bank.uploaderId === stat.uploaderId || 
+             (bank.uploader && stat.uploader && bank.uploader === stat.uploader))
+          );
+          
+          if (matchingBank) {
+            // 如果找到匹配的实际题库，使用它的信息
+            return matchingBank;
+          } else {
+            // 如果没找到匹配的实际题库，跳过此项
+            return null;
           }
-        })
+        }).filter(Boolean); // 过滤掉null值
         
         // 应用搜索条件
         if (this.searchBankName) {
@@ -535,6 +605,7 @@ export default {
       if (this.currentQuestionIndex > 0) {
         this.currentQuestionIndex--
         this.currentQuestion = this.currentBankQuestions[this.currentQuestionIndex]
+        this.showAnswer = false // 切换题目时隐藏答案
       }
     },
     
@@ -543,6 +614,7 @@ export default {
       if (this.currentQuestionIndex < this.currentBankQuestions.length - 1) {
         this.currentQuestionIndex++
         this.currentQuestion = this.currentBankQuestions[this.currentQuestionIndex]
+        this.showAnswer = false // 切换题目时隐藏答案
       }
     },
     
@@ -577,6 +649,50 @@ export default {
       this.currentQuestionIndex = 0
       this.userAnswers = []
       this.currentQuestion = {}
+      this.showAnswer = false
+    },
+    
+    // 当用户选择或输入答案时触发（用于非单选题）
+    onAnswerChange() {
+      // 此方法不再自动显示答案，仅保留供其他用途
+    },
+    
+    // 当用户选择单选题答案时触发
+    onSingleChoiceAnswerChange() {
+      // 单选题用户作答后自动显示答案
+      if (this.userAnswers[this.currentQuestionIndex] !== '') {
+        this.showAnswer = true
+      }
+    },
+    
+    // 显示正确答案
+    showCorrectAnswer() {
+      this.showAnswer = true
+    },
+    
+    // 隐藏答案
+    hideAnswer() {
+      this.showAnswer = false
+    },
+    
+    // 格式化答案显示
+    formatAnswer(answer) {
+      if (Array.isArray(answer)) {
+        return answer.join(', ')
+      }
+      return answer
+    },
+    
+    // 检查答案是否正确
+    checkAnswerCorrect() {
+      const userAnswer = this.userAnswers[this.currentQuestionIndex]
+      const correctAnswer = this.currentQuestion.answer
+      
+      if (Array.isArray(userAnswer) && Array.isArray(correctAnswer)) {
+        return userAnswer.sort().join(',') === correctAnswer.sort().join(',')
+      } else {
+        return userAnswer === correctAnswer
+      }
     },
     
     // 分页相关方法
@@ -691,6 +807,29 @@ export default {
 
 .practice-actions .el-button {
   margin: 0 10px;
+}
+
+.answer-section {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border-left: 4px solid #409eff;
+}
+
+.correct-answer {
+  margin-bottom: 10px;
+}
+
+.analysis {
+  margin-bottom: 10px;
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.check-answer-status {
+  text-align: right;
 }
 
 .no-questions {

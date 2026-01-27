@@ -32,6 +32,16 @@ public interface ExamBankService {
      * 查询所有题库
      */
     List<ExamBank> selectAll(ExamBank examBank);
+    
+    /**
+     * 查询题库总数
+     */
+    int selectCount(ExamBank examBank);
+    
+    /**
+     * 分页查询题库
+     */
+    List<ExamBank> selectAllWithPaging(ExamBank examBank, int offset, int limit);
 
     /**
      * 根据学科查询题库
@@ -47,4 +57,11 @@ public interface ExamBankService {
      * 根据状态查询题库
      */
     List<ExamBank> selectByStatus(Integer status);
+    
+    // 便捷方法
+    int createExamBank(ExamBank examBank);
+    
+    int updateExamBank(ExamBank examBank);
+    
+    int deleteExamBankById(Integer bankId);
 }

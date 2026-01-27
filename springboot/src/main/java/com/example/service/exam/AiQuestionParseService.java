@@ -86,16 +86,24 @@ public class AiQuestionParseService {
      */
     private List<AiParsedQuestion> parseAiResponse(String response) {
         try {
-            // 解析AI返回的JSON响应
-            JSONObject jsonResponse = JSON.parseObject(response);
+            // 首先尝试解析AI返回的完整响应
+            JSONObject jsonResponse = null;
+            try {
+                jsonResponse = JSON.parseObject(response);
+            } catch (Exception e) {
+                // 如果无法解析整个响应，说明可能直接就是JSON数组
+                // 尝试直接解析为数组
+                String cleanResponse = cleanJsonString(response.trim());
+                return JSON.parseArray(cleanResponse, AiParsedQuestion.class);
+            }
             
             // 尝试从不同的可能结构中提取数据
             String parsedContent = "";
-            if (jsonResponse.containsKey("choices")) {
+            if (jsonResponse != null && jsonResponse.containsKey("choices")) {
                 // OpenAI格式
                 parsedContent = jsonResponse.getJSONArray("choices").getJSONObject(0)
                         .getJSONObject("message").getString("content");
-            } else if (jsonResponse.containsKey("output")) {
+            } else if (jsonResponse != null && jsonResponse.containsKey("output")) {
                 // 阿里云通义千问格式
                 parsedContent = jsonResponse.getJSONObject("output").getString("text");
             } else {
@@ -109,13 +117,35 @@ public class AiQuestionParseService {
             // 清理可能的非JSON内容
             String jsonStr = parsedContent.trim();
             if (jsonStr.startsWith("```json")) {
-                jsonStr = jsonStr.substring(7, jsonStr.lastIndexOf("``")).trim();
+                int startIndex = 7;
+                int endIndex = jsonStr.lastIndexOf("```");
+                if (endIndex > startIndex) {
+                    jsonStr = jsonStr.substring(startIndex, endIndex).trim();
+                }
             } else if (jsonStr.startsWith("```")) {
-                jsonStr = jsonStr.substring(3, jsonStr.lastIndexOf("``")).trim();
+                int startIndex = 3;
+                int endIndex = jsonStr.lastIndexOf("```");
+                if (endIndex > startIndex) {
+                    jsonStr = jsonStr.substring(startIndex, endIndex).trim();
+                }
             }
             
-            // 解析为数组
-            result = JSON.parseArray(jsonStr, AiParsedQuestion.class);
+            // 进一步清理可能的非法字符
+            jsonStr = cleanJsonString(jsonStr);
+            
+            // 尝试解析JSON数组
+            try {
+                result = JSON.parseArray(jsonStr, AiParsedQuestion.class);
+            } catch (Exception parseArrayEx) {
+                // 如果解析数组失败，可能是格式问题，尝试包装成数组
+                String wrappedJson = "[" + jsonStr.replaceAll("(?<=\\})\\s*,\\s*(?=\\{)", ",").replaceAll("\\}\\s*\\{", "},{") + "]";
+                try {
+                    result = JSON.parseArray(wrappedJson, AiParsedQuestion.class);
+                } catch (Exception wrappedEx) {
+                    // 如果还是失败，返回空列表
+                    result = new ArrayList<>();
+                }
+            }
             
             return result;
         } catch (Exception e) {
@@ -123,6 +153,34 @@ public class AiQuestionParseService {
             // 如果解析失败，返回空列表
             return new ArrayList<>();
         }
+    }
+    
+    /**
+     * 清理JSON字符串中的非法字符
+     * @param jsonStr 原始JSON字符串
+     * @return 清理后的JSON字符串
+     */
+    private String cleanJsonString(String jsonStr) {
+        if (jsonStr == null || jsonStr.isEmpty()) {
+            return jsonStr;
+        }
+        
+        StringBuilder cleaned = new StringBuilder();
+        char[] chars = jsonStr.toCharArray();
+        
+        for (int i = 0; i < chars.length; i++) {
+            char c = chars[i];
+            
+            // 跳过控制字符（ASCII码小于32的字符，除了制表符、换行符和回车符）
+            if (c < 32 && c != '\t' && c != '\n' && c != '\r') {
+                continue;
+            }
+            
+            // 检查是否是合法的JSON字符
+            cleaned.append(c);
+        }
+        
+        return cleaned.toString();
     }
 
     /**

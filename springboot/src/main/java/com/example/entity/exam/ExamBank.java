@@ -8,7 +8,10 @@ import java.util.Date;
 public class ExamBank {
     private Integer bankId; // 题库ID
     private String bankName; // 题库名称
+    private Integer majorId; // 专业ID
+    private String majorName; // 专业名称
     private String subject; // 学科
+    private Integer subjectId; // 学科ID
     private String description; // 描述
     private Integer uploaderId; // 上传者ID
     private String uploader; // 上传者
@@ -37,12 +40,36 @@ public class ExamBank {
         this.bankName = bankName;
     }
 
+    public Integer getMajorId() {
+        return majorId;
+    }
+
+    public void setMajorId(Integer majorId) {
+        this.majorId = majorId;
+    }
+
+    public String getMajorName() {
+        return majorName;
+    }
+
+    public void setMajorName(String majorName) {
+        this.majorName = majorName;
+    }
+
     public String getSubject() {
         return subject;
     }
 
     public void setSubject(String subject) {
         this.subject = subject;
+    }
+
+    public Integer getSubjectId() {
+        return subjectId;
+    }
+
+    public void setSubjectId(Integer subjectId) {
+        this.subjectId = subjectId;
     }
 
     public String getDescription() {

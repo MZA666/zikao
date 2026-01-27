@@ -13,6 +13,31 @@
         <el-tabs v-model="activeTab" type="card" class="upload-tabs">
           <el-tab-pane label="文件上传" name="file">
             <el-form :model="uploadForm" label-width="120px" class="upload-form">
+              <el-form-item label="题库名称">
+                <el-input
+                  v-model="uploadForm.bankName"
+                  placeholder="请输入题库名称"
+                  clearable
+                />
+              </el-form-item>
+              
+              <el-form-item label="选择专业">
+                <el-autocomplete
+                  v-model="uploadForm.majorName"
+                  :fetch-suggestions="queryMajors"
+                  placeholder="选择或输入专业"
+                  clearable
+                  @select="onMajorSelect"
+                  @change="onMajorChange"
+                  @clear="onMajorClear"
+                  style="width: 100%;"
+                >
+                  <template #default="{ item }">
+                    <div class="value">{{ item.name }}</div>
+                  </template>
+                </el-autocomplete>
+              </el-form-item>
+              
               <el-form-item label="选择学科">
                 <el-autocomplete
                   v-model="uploadForm.subjectName"
@@ -65,6 +90,31 @@
           <el-tab-pane label="表单上传" name="form">
             <div class="form-upload-section">
               <el-form :model="questionForm" label-width="120px" class="question-form">
+                <el-form-item label="题库名称">
+                  <el-input
+                    v-model="questionForm.bankName"
+                    placeholder="请输入题库名称"
+                    clearable
+                  />
+                </el-form-item>
+                
+                <el-form-item label="选择专业">
+                  <el-autocomplete
+                    v-model="questionForm.majorName"
+                    :fetch-suggestions="queryMajors"
+                    placeholder="选择或输入专业"
+                    clearable
+                    @select="onQuestionMajorSelect"
+                    @change="onQuestionMajorChange"
+                    @clear="onQuestionMajorClear"
+                    style="width: 100%;"
+                  >
+                    <template #default="{ item }">
+                      <div class="value">{{ item.name }}</div>
+                    </template>
+                  </el-autocomplete>
+                </el-form-item>
+                
                 <el-form-item label="选择学科">
                   <el-autocomplete
                     v-model="questionForm.subjectName"
@@ -223,10 +273,16 @@ export default {
       currentUser: {}, // 当前登录用户信息
       subjects: [],
       uploadForm: {
+        bankName: '', // 题库名称
+        majorId: '', // 专业ID
+        majorName: '', // 专业名称
         subjectId: '',
         subjectName: '' // 新增：用于autocomplete的学科名称
       },
       questionForm: { // 新增：表单上传题目表单
+        bankName: '', // 题库名称
+        majorId: '', // 专业ID
+        majorName: '', // 专业名称
         subjectId: '',
         subjectName: '', // 新增：用于autocomplete的学科名称
         type: '',
@@ -277,7 +333,10 @@ D.图形显示屏（消防设施）
     uploadFormData() {
       // 将当前用户信息也包含在上传数据中
       const data = {
-        subjectId: this.uploadForm.subjectId
+        subjectId: this.uploadForm.subjectId,
+        bankName: this.uploadForm.bankName,
+        majorName: this.uploadForm.majorName,
+        subjectName: this.uploadForm.subjectName
       };
       
       // 添加用户信息
@@ -288,6 +347,11 @@ D.图形显示屏（消防设施）
         data.username = this.currentUser.name;
       } else if (this.currentUser && this.currentUser.username) {
         data.username = this.currentUser.username;
+      }
+      
+      // 添加专业ID
+      if (this.uploadForm.majorId) {
+        data.majorId = this.uploadForm.majorId;
       }
       
       return data;
@@ -302,9 +366,66 @@ D.图形显示屏（消防设施）
   },
   created() {
     this.loadCurrentUser(); // 加载当前用户信息
+    this.loadMajors(); // 加载专业列表
     this.loadSubjects()
   },
   methods: {
+    // 查询专业建议
+    queryMajors(queryString, cb) {
+      let results = queryString ? 
+        this.majors.filter(item => item.name.toLowerCase().indexOf(queryString.toLowerCase()) !== -1) : 
+        this.majors;
+      cb(results);
+    },
+    
+    // 专业选择事件（当选中下拉选项时触发）
+    onMajorSelect(item) {
+      this.uploadForm.majorId = item.id;
+      this.uploadForm.majorName = item.name;
+    },
+    
+    // 专业改变事件（当输入值改变时触发）
+    onMajorChange(value) {
+      // 如果输入的值匹配某个专业名称，则设置对应的ID
+      const matchedMajor = this.majors.find(major => major.name === value);
+      if (matchedMajor) {
+        this.uploadForm.majorId = matchedMajor.id;
+      } else {
+        // 如果输入的是自定义值，暂时清空majorId
+        this.uploadForm.majorId = '';
+      }
+    },
+    
+    // 专业清除事件
+    onMajorClear() {
+      this.uploadForm.majorId = '';
+      this.uploadForm.majorName = '';
+    },
+    
+    // 问题表单的专业选择事件
+    onQuestionMajorSelect(item) {
+      this.questionForm.majorId = item.id;
+      this.questionForm.majorName = item.name;
+    },
+    
+    // 问题表单的专业改变事件
+    onQuestionMajorChange(value) {
+      // 如果输入的值匹配某个专业名称，则设置对应的ID
+      const matchedMajor = this.majors.find(major => major.name === value);
+      if (matchedMajor) {
+        this.questionForm.majorId = matchedMajor.id;
+      } else {
+        // 如果输入的是自定义值，暂时清空majorId
+        this.questionForm.majorId = '';
+      }
+    },
+    
+    // 问题表单的专业清除事件
+    onQuestionMajorClear() {
+      this.questionForm.majorId = '';
+      this.questionForm.majorName = '';
+    },
+    
     // 查询学科建议
     querySubjects(queryString, cb) {
       let results = queryString ? 
@@ -372,6 +493,17 @@ D.图形显示屏（消防设施）
       }
     },
     
+    // 加载专业列表
+    async loadMajors() {
+      try {
+        const response = await request.get('/files/majors')
+        this.majors = response.data
+      } catch (error) {
+        console.error('加载专业列表失败:', error)
+        this.$message.error('加载专业列表失败')
+      }
+    },
+    
     // 加载学科列表
     async loadSubjects() {
       try {
@@ -406,6 +538,16 @@ D.图形显示屏（消防设施）
     
     // 开始上传
     submitUpload() {
+      if (!this.uploadForm.bankName) {
+        this.$message.warning('请输入题库名称')
+        return
+      }
+      
+      if (!this.uploadForm.majorName) {
+        this.$message.warning('请输入专业名称')
+        return
+      }
+      
       if (!this.uploadForm.subjectId) {
         this.$message.warning('请选择学科')
         return
@@ -513,6 +655,11 @@ D.图形显示屏（消防设施）
     
     // 新增：验证题目表单
     validateQuestionForm() {
+      if (!this.questionForm.bankName?.trim()) {
+        this.$message.warning('请输入题库名称');
+        return false;
+      }
+      
       if (!this.questionForm.subjectId) {
         this.$message.warning('请选择学科');
         return false;
@@ -602,7 +749,12 @@ D.图形显示屏（消防设施）
         const requestData = {
           questions: this.batchQuestions,
           userId: this.currentUser.userId,
-          username: this.currentUser.name || this.currentUser.username
+          username: this.currentUser.name || this.currentUser.username,
+          // 使用第一个题目的题库名称和专业信息
+          bankName: this.batchQuestions[0].bankName,
+          majorName: this.batchQuestions[0].majorName,
+          subjectName: this.batchQuestions[0].subjectName,
+          subjectId: this.batchQuestions[0].subjectId
         };
         
         const response = await request.post('/exam/upload/batch', requestData);

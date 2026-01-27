@@ -39,6 +39,11 @@ public class ExamBankServiceImpl implements ExamBankService {
     }
 
     @Override
+    public int selectCount(ExamBank examBank) {
+        return examBankMapper.selectCount(examBank);
+    }
+
+    @Override
     public List<ExamBank> selectBySubject(String subject) {
         return examBankMapper.selectBySubject(subject);
     }
@@ -51,5 +56,25 @@ public class ExamBankServiceImpl implements ExamBankService {
     @Override
     public List<ExamBank> selectByStatus(Integer status) {
         return examBankMapper.selectByStatus(status);
+    }
+    
+    @Override
+    public int createExamBank(ExamBank examBank) {
+        return examBankMapper.insert(examBank);
+    }
+    
+    @Override
+    public int updateExamBank(ExamBank examBank) {
+        return examBankMapper.updateById(examBank);
+    }
+    
+    @Override
+    public int deleteExamBankById(Integer bankId) {
+        return examBankMapper.deleteById(bankId);
+    }
+    
+    @Override
+    public List<ExamBank> selectAllWithPaging(ExamBank examBank, int offset, int limit) {
+        return examBankMapper.selectAllWithPaging(examBank, offset, limit);
     }
 }

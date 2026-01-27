@@ -45,7 +45,7 @@
         SELECT <include refid="Base_Column_List"/>
         FROM question_collection
         WHERE user_id = #{userId}
-        ORDER BY collected_time DESC
+        ORDER BY created_time DESC
     </select>
 
     <select id="selectByQuestionId" parameterType="java.lang.Integer" resultMap="BaseResultMap">

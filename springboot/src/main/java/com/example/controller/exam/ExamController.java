@@ -347,57 +347,35 @@ public class ExamController {
     public Result addBankCollection(@RequestBody Map<String, Object> collectionData) {
         try {
             Integer userId = (Integer) collectionData.get("userId");
-            String bankIdStr = (String) collectionData.get("bankId");
             String bankName = (String) collectionData.get("bankName");
             
-            // 安全地提取subjectId和uploaderId
-            Integer subjectId = null;
-            if (collectionData.get("subjectId") != null) {
-                if (collectionData.get("subjectId") instanceof Integer) {
-                    subjectId = (Integer) collectionData.get("subjectId");
+            // 安全地提取bankId
+            Integer bankId = null;
+            Object bankIdObj = collectionData.get("bankId");
+            if (bankIdObj != null) {
+                if (bankIdObj instanceof String) {
+                    bankId = Integer.valueOf((String) bankIdObj);
+                } else if (bankIdObj instanceof Integer) {
+                    bankId = (Integer) bankIdObj;
                 } else {
-                    subjectId = Integer.valueOf(collectionData.get("subjectId").toString());
+                    bankId = Integer.valueOf(bankIdObj.toString());
                 }
             }
             
-            Integer uploaderId = null;
-            if (collectionData.get("uploaderId") != null) {
-                if (collectionData.get("uploaderId") instanceof Integer) {
-                    uploaderId = (Integer) collectionData.get("uploaderId");
-                } else {
-                    uploaderId = Integer.valueOf(collectionData.get("uploaderId").toString());
-                }
-            }
+            System.out.println("Debug: Received collection data - userId:" + userId + ", bankId:" + bankId + ", bankName:" + bankName);
             
-            System.out.println("Debug: Received collection data - userId:" + userId + ", bankIdStr:" + bankIdStr + ", subjectId:" + subjectId + ", uploaderId:" + uploaderId);
-            
-            // 对于虚拟题库ID，我们需要使用虚拟ID字符串作为标识
-            Integer actualBankId = null;
-            
-            if (bankIdStr != null && !bankIdStr.startsWith("virtual_")) {
-                try {
-                    actualBankId = Integer.valueOf(bankIdStr);
-                } catch (NumberFormatException e) {
-                    return Result.error("无效的题库ID格式");
-                }
+            // 检查是否已收藏
+            ExamBankCollection existingCollection = examBankCollectionService.selectByUserIdAndBankId(userId, bankId);
+            if (existingCollection != null) {
+                return Result.error("已收藏过此题库");
             }
             
             ExamBankCollection collection = new ExamBankCollection();
             collection.setUserId(userId);
+            collection.setBankId(bankId); // 设置实际的bankId
             collection.setBankName(bankName);
-            collection.setSubjectId(subjectId);
-            collection.setUploaderId(uploaderId);
             
-            System.out.println("Debug: Setting collection data - userId:" + collection.getUserId() + ", subjectId:" + collection.getSubjectId() + ", uploaderId:" + collection.getUploaderId());
-            
-            // 检查是否已收藏（考虑虚拟题库的情况）
-            if (isVirtualBankId(bankIdStr)) {
-                // 对于虚拟题库，检查是否已收藏相同的学科和上传者组合
-                if (examBankCollectionService.isCollectedForVirtualBank(userId, subjectId, uploaderId)) {
-                    return Result.error("已收藏过此题库");
-                }
-            }
-            
+            System.out.println("Debug: Setting collection data - userId:" + collection.getUserId() + ", bankId:" + collection.getBankId() + ", bankName:" + collection.getBankName());
             
             int result = examBankCollectionService.insert(collection);
             System.out.println("Debug: Insert result:" + result + ", Collection ID after insert:" + collection.getId());
@@ -410,19 +388,16 @@ public class ExamController {
     }
 
     @DeleteMapping("/bank/collection/{userId}/{bankId}")
-    public Result deleteBankCollection(@PathVariable Integer userId, @PathVariable String bankId) {
+    public Result deleteBankCollection(@PathVariable Integer userId, @PathVariable Integer bankId) {
         try {
-            Integer actualBankId = null;
-            if (!bankId.startsWith("virtual_")) {
-                try {
-                    actualBankId = Integer.valueOf(bankId);
-                } catch (NumberFormatException e) {
-                    return Result.error("无效的题库ID格式");
-                }
-            }
+            // 根据题库ID删除对应收藏记录
+            int result = examBankCollectionService.deleteByUserIdAndBankId(userId, bankId);
             
-            examBankCollectionService.deleteByUserIdAndBankIdExtended(userId, actualBankId, bankId);
-            return Result.success("取消收藏成功");
+            if (result > 0) {
+                return Result.success("取消收藏成功");
+            } else {
+                return Result.error("未找到对应的收藏记录");
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return Result.error("取消收藏失败: " + e.getMessage());
@@ -434,24 +409,22 @@ public class ExamController {
         System.out.println("Debug: Getting collections for user ID:" + userId);
         List<ExamBankCollection> collections = examBankCollectionService.selectByUserId(userId);
         System.out.println("Debug: Found " + collections.size() + " collections");
-        // 返回收藏的完整信息，包括学科ID和上传者ID
+        // 返回收藏的完整信息
         List<Map<String, Object>> result = new ArrayList<>();
         for (ExamBankCollection collection : collections) {
-            System.out.println("Debug: Processing collection - id:" + collection.getId() + ", bankName:" + collection.getBankName() + ", subjectId:" + collection.getSubjectId() + ", uploaderId:" + collection.getUploaderId());
+            System.out.println("Debug: Processing collection - id:" + collection.getId() + ", bankId:" + collection.getBankId() + ", bankName:" + collection.getBankName());
             Map<String, Object> item = new HashMap<>();
             item.put("id", collection.getId());
             item.put("userId", collection.getUserId());
-            // 对于虚拟题库，bankId可能为null，所以使用虚拟ID格式
-            if (collection.getSubjectId() != null) {
-                String virtualId = "virtual_" + collection.getSubjectId() + "_" + (collection.getUploaderId() != null ? collection.getUploaderId() : "unknown");
-                item.put("bankId", virtualId);
-            } else {
-                item.put("bankId", collection.getId());
-            }
+            item.put("bankId", collection.getBankId()); // 实际的bankId
             item.put("bankName", collection.getBankName());
-            item.put("subjectId", collection.getSubjectId());
-            item.put("uploaderId", collection.getUploaderId());
             item.put("collectedTime", collection.getCollectedTime());
+            // 添加专业和学科信息
+            ExamBank bank = examBankService.selectById(collection.getBankId());
+            if (bank != null) {
+                item.put("subjectName", bank.getSubject());
+                item.put("majorName", bank.getMajorName());
+            }
             result.add(item);
         }
         System.out.println("Debug: Returning " + result.size() + " items");
@@ -459,36 +432,10 @@ public class ExamController {
     }
 
     @GetMapping("/bank/collection/check/{userId}/{bankId}")
-    public Result checkBankCollection(@PathVariable Integer userId, @PathVariable String bankId) {
-        boolean isCollected;
-        if (isVirtualBankId(bankId)) {
-            // 解析虚拟ID获取学科ID和上传者ID
-            String[] parts = bankId.split("_");
-            if (parts.length >= 3) {
-                Integer subjectId = Integer.parseInt(parts[1]);
-                Integer uploaderId = !"unknown".equals(parts[2]) ? Integer.parseInt(parts[2]) : null;
-                isCollected = examBankCollectionService.isCollectedForVirtualBank(userId, subjectId, uploaderId);
-            } else {
-                isCollected = false;
-            }
-        } else {
-            // 对于实际的题库ID，检查是否已收藏（使用虚拟ID逻辑，因为bankId字段已移除）
-            // 尝试解析bankId为虚拟ID格式
-            String[] parts = bankId.split("_");
-            if (parts.length >= 3 && "virtual".equals(parts[0])) {
-                Integer subjectId = Integer.parseInt(parts[1]);
-                Integer uploaderId = !"unknown".equals(parts[2]) ? Integer.parseInt(parts[2]) : null;
-                isCollected = examBankCollectionService.isCollectedForVirtualBank(userId, subjectId, uploaderId);
-            } else {
-                isCollected = false;
-            }
-        }
+    public Result checkBankCollection(@PathVariable Integer userId, @PathVariable Integer bankId) {
+        ExamBankCollection collection = examBankCollectionService.selectByUserIdAndBankId(userId, bankId);
+        boolean isCollected = collection != null;
         return Result.success(isCollected);
-    }
-    
-    // 检查是否为虚拟题库ID
-    private boolean isVirtualBankId(String bankId) {
-        return bankId != null && bankId.startsWith("virtual_");
     }
     
     // 考试记录相关接口
@@ -576,9 +523,24 @@ public class ExamController {
     }
 
     @GetMapping("/bank/list")
-    public Result getExamBankList(ExamBank examBank) {
-        List<ExamBank> examBanks = examBankService.selectAll(examBank);
-        return Result.success(examBanks);
+    public Result getExamBankList(ExamBank examBank, 
+                                @RequestParam(defaultValue = "1") Integer pageNum,
+                                @RequestParam(defaultValue = "10") Integer pageSize) {
+        // 计算偏移量
+        int offset = (pageNum - 1) * pageSize;
+        
+        List<ExamBank> examBanks = examBankService.selectAllWithPaging(examBank, offset, pageSize);
+        
+        // 获取总数用于分页 - 使用优化的计数查询
+        int totalCount = examBankService.selectCount(examBank);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("list", examBanks);
+        result.put("pageNum", pageNum);
+        result.put("pageSize", pageSize);
+        result.put("total", totalCount);
+        
+        return Result.success(result);
     }
 
     @GetMapping("/bank/subject/{subject}")
@@ -630,6 +592,20 @@ public class ExamController {
     public Result getQuestionOptions(@PathVariable Integer questionId) {
         List<QuestionOption> options = optionService.selectByQuestionId(questionId);
         return Result.success(options);
+    }
+    
+    // 学习空间界面关联题库表查询，展示相关专业和学科名称
+    @GetMapping("/bank/user/{userId}/with-major-subject")
+    public Result getUserBanksWithMajorSubject(@PathVariable Integer userId) {
+        try {
+            // 直接获取用户收藏的题库及其专业和学科信息
+            List<Map<String, Object>> result = examBankCollectionService.selectUserBanksWithMajorSubject(userId);
+            
+            return Result.success(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("获取用户题库信息失败: " + e.getMessage());
+        }
     }
     
 }

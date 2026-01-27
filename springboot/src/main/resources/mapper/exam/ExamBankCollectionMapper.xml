@@ -5,34 +5,29 @@
     <resultMap id="BaseResultMap" type="com.example.entity.exam.ExamBankCollection">
         <id column="id" property="id"/>
         <result column="user_id" property="userId"/>
-
+        <result column="bank_id" property="bankId"/>
         <result column="bank_name" property="bankName"/>
-        <result column="subject_id" property="subjectId"/>
-        <result column="uploader_id" property="uploaderId"/>
         <result column="collected_time" property="collectedTime"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, user_id, bank_name, subject_id, uploader_id, collected_time
+        id, user_id, bank_id, bank_name, collected_time
     </sql>
 
     <insert id="insert" parameterType="com.example.entity.exam.ExamBankCollection" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO exam_bank_collection (user_id, bank_name, subject_id, uploader_id, collected_time)
-        VALUES (#{userId}, #{bankName}, #{subjectId}, #{uploaderId}, NOW())
+        INSERT INTO exam_bank_collection (user_id, bank_id, bank_name, collected_time)
+        VALUES (#{userId}, #{bankId}, #{bankName}, NOW())
     </insert>
 
     <delete id="deleteById" parameterType="java.lang.Integer">
         DELETE FROM exam_bank_collection WHERE id = #{id}
     </delete>
 
-
-
     <update id="updateById" parameterType="com.example.entity.exam.ExamBankCollection">
         UPDATE exam_bank_collection
         SET user_id = #{userId},
+            bank_id = #{bankId},
             bank_name = #{bankName},
-            subject_id = #{subjectId},
-            uploader_id = #{uploaderId},
             collected_time = NOW()
         WHERE id = #{id}
     </update>
@@ -50,38 +45,33 @@
         ORDER BY collected_time DESC
     </select>
 
-
-
-
-    
-    <select id="selectByUserIdAndVirtualBankInfo" parameterType="map" resultMap="BaseResultMap">
+    <select id="selectByUserIdAndBankId" parameterType="map" resultMap="BaseResultMap">
         SELECT <include refid="Base_Column_List"/>
         FROM exam_bank_collection
-        WHERE user_id = #{userId} AND subject_id = #{subjectId} AND uploader_id = #{uploaderId}
+        WHERE user_id = #{userId} AND bank_id = #{bankId}
     </select>
     
-    <select id="selectByUserIdAndVirtualBankInfoWithNullBankId" parameterType="map" resultMap="BaseResultMap">
-        SELECT <include refid="Base_Column_List"/>
-        FROM exam_bank_collection
-        WHERE user_id = #{userId} AND subject_id = #{subjectId} AND uploader_id = #{uploaderId}
+    <delete id="deleteByUserIdAndBankId" parameterType="map">
+        DELETE FROM exam_bank_collection
+        WHERE user_id = #{userId} AND bank_id = #{bankId}
+    </delete>
+    
+    <!-- 查询用户收藏的题库及其专业和学科信息 -->
+    <select id="selectUserBanksWithMajorSubject" parameterType="java.lang.Integer" resultType="map">
+        SELECT 
+            c.id,
+            c.user_id as userId,
+            c.bank_id as bankId,
+            c.bank_name as bankName,
+            c.collected_time as collectedTime,
+            b.major_id as majorId,
+            b.major_name as majorName,
+            b.subject_id as subjectId,
+            b.subject as subject,
+            b.question_count as questionCount
+        FROM exam_bank_collection c
+        LEFT JOIN exam_bank b ON c.bank_id = b.bank_id
+        WHERE c.user_id = #{userId}
+        ORDER BY c.collected_time DESC
     </select>
-    
-    <delete id="deleteByUserIdAndVirtualBankInfo" parameterType="map">
-        DELETE FROM exam_bank_collection 
-        WHERE user_id = #{userId} 
-        AND CONCAT('virtual_', subject_id, '_', COALESCE(uploader_id, 'unknown')) = #{bankIdStr}
-    </delete>
-    
-    <delete id="deleteByUserIdAndVirtualBankInfoExtended" parameterType="map">
-        DELETE FROM exam_bank_collection 
-        WHERE user_id = #{userId} AND subject_id = #{subjectId}
-        AND uploader_id = #{uploaderId}
-    </delete>
-    
-    <delete id="deleteByUserIdAndSubjectUploader" parameterType="map">
-        DELETE FROM exam_bank_collection 
-        WHERE user_id = #{userId} AND subject_id = #{subjectId}
-        AND uploader_id = #{uploaderId}
-    </delete>
-
 </mapper>

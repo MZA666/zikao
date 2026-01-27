@@ -16,6 +16,9 @@ public class Question {
     private Date updatedTime; // 更新时间
     private Integer uploaderId; // 上传者ID
     private String uploader; // 上传者姓名
+    private String bankName; // 题库名称
+    private Integer majorId; // 专业ID
+    private Integer bankId; // 题库ID
     
     // 关联的选项列表（对于选择题）
     private List<QuestionOption> options;
@@ -115,6 +118,30 @@ public class Question {
 
     public void setUploader(String uploader) {
         this.uploader = uploader;
+    }
+
+    public String getBankName() {
+        return bankName;
+    }
+
+    public void setBankName(String bankName) {
+        this.bankName = bankName;
+    }
+
+    public Integer getMajorId() {
+        return majorId;
+    }
+
+    public void setMajorId(Integer majorId) {
+        this.majorId = majorId;
+    }
+
+    public Integer getBankId() {
+        return bankId;
+    }
+
+    public void setBankId(Integer bankId) {
+        this.bankId = bankId;
     }
 
     public List<QuestionOption> getOptions() {

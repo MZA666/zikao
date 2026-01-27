@@ -5,6 +5,9 @@
     <resultMap id="BaseResultMap" type="com.example.entity.exam.ExamBank">
         <id column="bank_id" property="bankId"/>
         <result column="bank_name" property="bankName"/>
+        <result column="major_id" property="majorId"/>
+        <result column="major_name" property="majorName"/>
+        <result column="subject_id" property="subjectId"/>
         <result column="subject" property="subject"/>
         <result column="description" property="description"/>
         <result column="uploader_id" property="uploaderId"/>
@@ -19,7 +22,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        bank_id, bank_name, subject, description, uploader_id, uploader, question_count, status, reason, upload_time, audit_time, auditor_id, is_shared
+        bank_id, bank_name, major_id, major_name, subject_id, subject, description, uploader_id, uploader, question_count, status, reason, upload_time, audit_time, auditor_id, is_shared
     </sql>
 
     <insert id="insert" parameterType="com.example.entity.exam.ExamBank" useGeneratedKeys="true" keyProperty="bankId">
@@ -34,7 +37,10 @@
     <update id="updateById" parameterType="com.example.entity.exam.ExamBank">
         UPDATE exam_bank
         SET bank_name = #{bankName},
+            major_id = #{majorId},
+            major_name = #{majorName},
             subject = #{subject},
+            subject_id = #{subjectId},
             description = #{description},
             uploader_id = #{uploaderId},
             uploader = #{uploader},
@@ -59,6 +65,15 @@
         <where>
             <if test="subject != null and subject != ''">
                 AND subject LIKE CONCAT('%', #{subject}, '%')
+            </if>
+            <if test="subjectId != null">
+                AND subject_id = #{subjectId}
+            </if>
+            <if test="majorId != null">
+                AND major_id = #{majorId}
+            </if>
+            <if test="majorName != null and majorName != ''">
+                AND major_name LIKE CONCAT('%', #{majorName}, '%')
             </if>
             <if test="uploaderId != null">
                 AND uploader_id = #{uploaderId}
@@ -93,5 +108,62 @@
         WHERE status = #{status}
         ORDER BY upload_time DESC
     </select>
-
+    
+    <select id="selectCount" parameterType="com.example.entity.exam.ExamBank" resultType="int">
+        SELECT COUNT(*)
+        FROM exam_bank
+        <where>
+            <if test="subject != null and subject != ''">
+                AND subject LIKE CONCAT('%', #{subject}, '%')
+            </if>
+            <if test="subjectId != null">
+                AND subject_id = #{subjectId}
+            </if>
+            <if test="majorId != null">
+                AND major_id = #{majorId}
+            </if>
+            <if test="majorName != null and majorName != ''">
+                AND major_name LIKE CONCAT('%', #{majorName}, '%')
+            </if>
+            <if test="uploaderId != null">
+                AND uploader_id = #{uploaderId}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="bankName != null and bankName != ''">
+                AND bank_name LIKE CONCAT('%', #{bankName}, '%')
+            </if>
+        </where>
+    </select>
+    
+    <select id="selectAllWithPaging" parameterType="map" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM exam_bank
+        <where>
+            <if test="examBank.subject != null and examBank.subject != ''">
+                AND subject LIKE CONCAT('%', #{examBank.subject}, '%')
+            </if>
+            <if test="examBank.subjectId != null">
+                AND subject_id = #{examBank.subjectId}
+            </if>
+            <if test="examBank.majorId != null">
+                AND major_id = #{examBank.majorId}
+            </if>
+            <if test="examBank.majorName != null and examBank.majorName != ''">
+                AND major_name LIKE CONCAT('%', #{examBank.majorName}, '%')
+            </if>
+            <if test="examBank.uploaderId != null">
+                AND uploader_id = #{examBank.uploaderId}
+            </if>
+            <if test="examBank.status != null">
+                AND status = #{examBank.status}
+            </if>
+            <if test="examBank.bankName != null and examBank.bankName != ''">
+                AND bank_name LIKE CONCAT('%', #{examBank.bankName}, '%')
+            </if>
+        </where>
+        ORDER BY upload_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
 </mapper>

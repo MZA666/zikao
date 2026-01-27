@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import jakarta.annotation.Resource;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ExamBankCollectionServiceImpl implements ExamBankCollectionService {
@@ -15,7 +16,7 @@ public class ExamBankCollectionServiceImpl implements ExamBankCollectionService 
 
     @Override
     public int insert(ExamBankCollection collection) {
-        System.out.println("Debug: Service insert - userId:" + collection.getUserId() + ", subjectId:" + collection.getSubjectId() + ", uploaderId:" + collection.getUploaderId());
+        System.out.println("Debug: Service insert - userId:" + collection.getUserId() + ", bankId:" + collection.getBankId() + ", bankName:" + collection.getBankName());
         return collectionMapper.insert(collection);
     }
 
@@ -23,8 +24,6 @@ public class ExamBankCollectionServiceImpl implements ExamBankCollectionService 
     public int deleteById(Integer id) {
         return collectionMapper.deleteById(id);
     }
-
-
 
     @Override
     public int updateById(ExamBankCollection collection) {
@@ -41,32 +40,18 @@ public class ExamBankCollectionServiceImpl implements ExamBankCollectionService 
         return collectionMapper.selectByUserId(userId);
     }
 
-
-
-
-
-
-
     @Override
-    public boolean isCollectedForVirtualBank(Integer userId, Integer subjectId, Integer uploaderId) {
-        ExamBankCollection collection = collectionMapper.selectByUserIdAndVirtualBankInfoWithNullBankId(userId, subjectId, uploaderId);
-        return collection != null;
+    public ExamBankCollection selectByUserIdAndBankId(Integer userId, Integer bankId) {
+        return collectionMapper.selectByUserIdAndBankId(userId, bankId);
     }
-
+    
     @Override
-    public int deleteByUserIdAndBankIdExtended(Integer userId, Integer bankId, String bankIdStr) {
-        if (bankId != null) {
-            // 删除真实的题库收藏 - 现在使用扩展方法处理
-            // 对于真实题库，通过虚拟信息方式删除（使用bankIdStr）
-            return collectionMapper.deleteByUserIdAndVirtualBankInfo(userId, bankIdStr);
-        } else {
-            // 删除虚拟题库收藏（基于学科ID和上传者ID）
-            return collectionMapper.deleteByUserIdAndVirtualBankInfo(userId, bankIdStr);
-        }
+    public int deleteByUserIdAndBankId(Integer userId, Integer bankId) {
+        return collectionMapper.deleteByUserIdAndBankId(userId, bankId);
     }
-
+    
     @Override
-    public int deleteByUserIdAndSubjectUploader(Integer userId, Integer subjectId, Integer uploaderId) {
-        return collectionMapper.deleteByUserIdAndSubjectUploader(userId, subjectId, uploaderId);
+    public List<Map<String, Object>> selectUserBanksWithMajorSubject(Integer userId) {
+        return collectionMapper.selectUserBanksWithMajorSubject(userId);
     }
 }

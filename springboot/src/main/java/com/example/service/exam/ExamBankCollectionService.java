@@ -3,6 +3,7 @@ package com.example.service.exam;
 import com.example.entity.exam.ExamBankCollection;
 
 import java.util.List;
+import java.util.Map;
 
 public interface ExamBankCollectionService {
     /**
@@ -14,8 +15,6 @@ public interface ExamBankCollectionService {
      * 根据ID删除题库收藏
      */
     int deleteById(Integer id);
-
-
 
     /**
      * 更新题库收藏
@@ -32,24 +31,18 @@ public interface ExamBankCollectionService {
      */
     List<ExamBankCollection> selectByUserId(Integer userId);
 
-
-
-
-
-
+    /**
+     * 根据用户ID和题库ID查询收藏
+     */
+    ExamBankCollection selectByUserIdAndBankId(Integer userId, Integer bankId);
     
     /**
-     * 判断用户是否已收藏虚拟题库（基于学科ID和上传者ID）
+     * 根据用户ID和题库ID删除收藏
      */
-    boolean isCollectedForVirtualBank(Integer userId, Integer subjectId, Integer uploaderId);
+    int deleteByUserIdAndBankId(Integer userId, Integer bankId);
     
     /**
-     * 根据用户ID和银行ID（扩展版）删除收藏
+     * 查询用户收藏的题库及其专业和学科信息
      */
-    int deleteByUserIdAndBankIdExtended(Integer userId, Integer bankId, String bankIdStr);
-    
-    /**
-     * 根据用户ID和学科ID、上传者ID删除收藏（用于虚拟题库）
-     */
-    int deleteByUserIdAndSubjectUploader(Integer userId, Integer subjectId, Integer uploaderId);
+    List<Map<String, Object>> selectUserBanksWithMajorSubject(Integer userId);
 }

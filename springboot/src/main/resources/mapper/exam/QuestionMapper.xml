@@ -15,15 +15,18 @@
         <result column="updated_time" property="updatedTime"/>
         <result column="uploader_id" property="uploaderId"/>
         <result column="uploader" property="uploader"/>
+        <result column="bank_name" property="bankName"/>
+        <result column="major_id" property="majorId"/>
+        <result column="bank_id" property="bankId"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, subject_id, type, content, answer, analysis, chapter, difficulty, created_time, updated_time, uploader_id, uploader
+        id, subject_id, type, content, answer, analysis, chapter, difficulty, created_time, updated_time, uploader_id, uploader, bank_name, major_id, bank_id
     </sql>
 
     <insert id="insert" parameterType="com.example.entity.exam.Question" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO question (subject_id, type, content, answer, analysis, chapter, difficulty, created_time, updated_time, uploader_id, uploader)
-        VALUES (#{subjectId}, #{type}, #{content}, #{answer}, #{analysis}, #{chapter}, #{difficulty}, NOW(), NOW(), #{uploaderId}, #{uploader})
+        INSERT INTO question (subject_id, type, content, answer, analysis, chapter, difficulty, created_time, updated_time, uploader_id, uploader, bank_name, major_id, bank_id)
+        VALUES (#{subjectId}, #{type}, #{content}, #{answer}, #{analysis}, #{chapter}, #{difficulty}, NOW(), NOW(), #{uploaderId}, #{uploader}, #{bankName}, #{majorId}, #{bankId})
     </insert>
 
     <delete id="deleteById" parameterType="java.lang.Integer">
@@ -41,6 +44,9 @@
             difficulty = #{difficulty},
             uploader_id = #{uploaderId},
             uploader = #{uploader},
+            bank_name = #{bankName},
+            major_id = #{majorId},
+            bank_id = #{bankId},
             updated_time = NOW()
         WHERE id = #{id}
     </update>
@@ -66,6 +72,12 @@
             </if>
             <if test="uploaderId != null">
                 AND uploader_id = #{uploaderId}
+            </if>
+            <if test="majorId != null">
+                AND major_id = #{majorId}
+            </if>
+            <if test="bankId != null">
+                AND bank_id = #{bankId}
             </if>
         </where>
         ORDER BY created_time DESC

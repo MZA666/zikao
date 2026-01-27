@@ -4,6 +4,7 @@ import com.example.entity.exam.ExamBankCollection;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 public interface ExamBankCollectionMapper {
     /**
@@ -15,8 +16,6 @@ public interface ExamBankCollectionMapper {
      * 根据ID删除题库收藏
      */
     int deleteById(Integer id);
-
-
 
     /**
      * 更新题库收藏
@@ -33,34 +32,20 @@ public interface ExamBankCollectionMapper {
      */
     List<ExamBankCollection> selectByUserId(@Param("userId") Integer userId);
 
-
-
-
+    /**
+     * 根据用户ID和题库ID查询收藏
+     */
+    ExamBankCollection selectByUserIdAndBankId(@Param("userId") Integer userId,
+                                               @Param("bankId") Integer bankId);
     
     /**
-     * 检查用户是否已收藏虚拟题库（基于学科ID和上传者ID）
+     * 根据用户ID和题库ID删除收藏
      */
-    ExamBankCollection selectByUserIdAndVirtualBankInfo(@Param("userId") Integer userId, 
-                                                         @Param("subjectId") Integer subjectId, 
-                                                         @Param("uploaderId") Integer uploaderId);
+    int deleteByUserIdAndBankId(@Param("userId") Integer userId,
+                                @Param("bankId") Integer bankId);
     
     /**
-     * 检查用户是否已收藏虚拟题库（带bank_id为NULL条件）
+     * 查询用户收藏的题库及其专业和学科信息
      */
-    ExamBankCollection selectByUserIdAndVirtualBankInfoWithNullBankId(@Param("userId") Integer userId, 
-                                                         @Param("subjectId") Integer subjectId, 
-                                                         @Param("uploaderId") Integer uploaderId);
-    
-    /**
-     * 根据用户ID和虚拟题库信息删除收藏
-     */
-    int deleteByUserIdAndVirtualBankInfo(@Param("userId") Integer userId, 
-                                         @Param("bankIdStr") String bankIdStr);
-    
-    /**
-     * 根据用户ID和学科ID、上传者ID删除收藏
-     */
-    int deleteByUserIdAndSubjectUploader(@Param("userId") Integer userId,
-                                         @Param("subjectId") Integer subjectId,
-                                         @Param("uploaderId") Integer uploaderId);
+    List<Map<String, Object>> selectUserBanksWithMajorSubject(@Param("userId") Integer userId);
 }
