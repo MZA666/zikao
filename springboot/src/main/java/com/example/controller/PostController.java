@@ -3,7 +3,10 @@ package com.example.controller;
 
 import com.example.common.Result;
 import com.example.entity.Post;
+import com.example.entity.PostDetail;
+import com.example.entity.Reply;
 import com.example.service.PostService;
+import com.example.service.ReplyService;
 import com.github.pagehelper.PageInfo;
 import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +20,9 @@ public class PostController {
 
     @Resource
     private PostService postService;
+
+    @Resource
+    private ReplyService replyService;
 
     /**
      * 新增帖子
@@ -130,5 +136,29 @@ public class PostController {
     public Result updateOfflineStatus(@PathVariable Integer id, @RequestParam String offlineReason) {
         postService.updateOfflineStatus(id, offlineReason);
         return Result.success();
+    }
+
+    /**
+     * 学员端 - 获取帖子详情（包含回复）
+     */
+    @GetMapping("/detail/{id}")
+    public Result getPostDetail(@PathVariable Integer id) {
+        try {
+            Post post = postService.findById(id);
+            if (post == null) {
+                return Result.error("帖子不存在");
+            }
+            
+            // 获取该帖子的所有回复
+            List<Reply> replies = replyService.getRepliesByPostId(Long.valueOf(id));
+            
+            // 组装帖子详情
+            PostDetail postDetail = new PostDetail(post, replies);
+            
+            return Result.success(postDetail);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("获取帖子详情失败：" + e.getMessage());
+        }
     }
 }

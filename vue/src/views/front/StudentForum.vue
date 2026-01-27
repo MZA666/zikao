@@ -110,6 +110,46 @@
           <span v-if="currentPostDetail.isTop === 1" class="post-top">置顶</span>
         </div>
         <div class="post-detail-body" v-html="currentPostDetail.content"></div>
+        
+        <!-- 回复列表 -->
+        <div class="replies-section">
+          <h4>回复列表 ({{ currentReplies.length }})</h4>
+          <div v-for="reply in currentReplies" :key="reply.id" class="reply-item">
+            <div class="reply-header">
+              <span class="reply-author">{{ reply.username }}</span>
+              <span class="reply-time">{{ formatDate(reply.createTime) }}</span>
+            </div>
+            <div class="reply-content" v-html="reply.content"></div>
+          </div>
+          
+          <div v-if="currentReplies.length === 0" class="no-replies">
+            暂无回复，快来抢沙发吧！
+          </div>
+        </div>
+        
+        <!-- 回复输入区域 -->
+        <div class="reply-input-section">
+          <el-button v-if="!showReplyInput" type="primary" @click="toggleReplyInput" size="small">我也说一句</el-button>
+          <div v-else class="reply-input-area">
+            <div style="border: 1px solid #ccc; border-radius: 4px; margin-top: 10px;">
+              <Toolbar
+                style="border-bottom: 1px solid #ccc"
+                :editor="replyEditorRef"
+                :defaultConfig="toolbarConfig"
+              />
+              <Editor
+                v-model="replyForm.content"
+                :defaultConfig="editorConfig"
+                :style="{ height: '150px', overflowY: 'hidden' }"
+                @onCreated="handleReplyEditorCreated"
+              />
+            </div>
+            <div style="margin-top: 10px; text-align: right;">
+              <el-button @click="cancelReply" size="small">取消</el-button>
+              <el-button type="primary" @click="submitReply" size="small">提交回复</el-button>
+            </div>
+          </div>
+        </div>
       </div>
       <template #footer>
         <el-button @click="showPostDetailDialog = false">关闭</el-button>
@@ -119,11 +159,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, shallowRef, onMounted } from 'vue'
+import { ref, reactive, shallowRef, onMounted, nextTick } from 'vue'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import '@wangeditor/editor/dist/css/style.css'
 import request from '@/utils/request'
 import { ElMessage, ElLink } from 'element-plus'
+import wangEditor from '@wangeditor/editor'
 
 // 状态变量
 const activeTab = ref('discussion')
@@ -132,6 +173,12 @@ const myPosts = ref([])
 const showPostDialog = ref(false)
 const showPostDetailDialog = ref(false)
 const currentPostDetail = ref({})
+const currentReplies = ref([])
+const replyForm = reactive({
+  postId: null,
+  content: ''
+})
+const showReplyInput = ref(false)
 const editorRef = shallowRef()
 
 // 搜索相关变量
@@ -263,8 +310,43 @@ const validateContent = (content) => {
 }
 
 // 查看帖子详情
-const viewPostDetail = (post) => {
+const viewPostDetail = async (post) => {
   currentPostDetail.value = post
+  
+  // 获取该帖子的回复
+  try {
+    const response = await request.get(`/post/detail/${post.id}`)
+    if (response.code === '200') {
+      currentPostDetail.value = response.data.post
+      currentReplies.value = response.data.replies || []
+    } else {
+      // 如果新的接口不可用，使用旧的方式获取帖子详情并单独获取回复
+      currentPostDetail.value = post
+      // 获取回复
+      const replyResponse = await request.get(`/reply/list/${post.id}`)
+      if (replyResponse.code === '200') { // 修复数据类型不匹配问题
+        currentReplies.value = replyResponse.data || []
+      } else {
+        currentReplies.value = []
+      }
+    }
+  } catch (error) {
+    console.error('获取帖子详情失败:', error)
+    // 备选方案：获取帖子基本信息
+    currentPostDetail.value = post
+    try {
+      const replyResponse = await request.get(`/reply/list/${post.id}`)
+      if (replyResponse.code === '200') {
+        currentReplies.value = replyResponse.data || []
+      } else {
+        currentReplies.value = []
+      }
+    } catch (replyError) {
+      console.error('获取回复失败:', replyError)
+      currentReplies.value = []
+    }
+  }
+  
   showPostDetailDialog.value = true
 }
 
@@ -478,6 +560,77 @@ const onTabChange = async (tabPane) => {
   }
 }
 
+// 切换回复输入框显示状态
+const toggleReplyInput = async () => {
+  const userInfo = getCurrentUserInfo()
+  if (!userInfo) {
+    ElMessage.error('请先登录')
+    return
+  }
+  
+  showReplyInput.value = true
+  replyForm.postId = currentPostDetail.value.id
+  
+  // 清空之前的回复内容
+  replyForm.content = ''
+}
+
+// 回复编辑器创建完成回调
+const handleReplyEditorCreated = (editor) => {
+  replyEditorRef.value = editor
+}
+
+// 提交回复
+const submitReply = async () => {
+  const userInfo = getCurrentUserInfo()
+  if (!userInfo) {
+    ElMessage.error('请先登录')
+    return
+  }
+  
+  const content = replyForm.content
+  if (!content || content.trim() === '<p><br></p>' || content.trim() === '') {
+    ElMessage.error('请输入回复内容')
+    return
+  }
+  
+  try {
+    const replyData = {
+      postId: currentPostDetail.value.id,
+      userId: userInfo.user_id,
+      username: userInfo.name || userInfo.username,
+      content: content
+    }
+    
+    const response = await request.post('/reply/add', replyData)
+    if (response.code === '200') { // 修复数据类型不匹配问题
+      ElMessage.success('回复成功')
+      
+      // 重新获取回复列表
+      const replyResponse = await request.get(`/reply/list/${currentPostDetail.value.id}`)
+      if (replyResponse.code === '200') { // 修复数据类型不匹配问题
+        currentReplies.value = replyResponse.data || []
+      }
+      
+      // 重置回复输入框
+      cancelReply()
+    } else {
+      ElMessage.error(response.message || '回复失败')
+    }
+  } catch (error) {
+    console.error('提交回复失败:', error)
+    ElMessage.error('回复失败，请稍后重试')
+  }
+}
+
+// 取消回复
+const cancelReply = () => {
+  showReplyInput.value = false
+  
+  // 清空回复内容
+  replyForm.content = ''
+}
+
 // 初始化
 onMounted(async () => {
   console.log('StudentForum组件挂载，开始初始化');
@@ -637,6 +790,63 @@ onMounted(async () => {
   border-radius: 4px;
   min-height: 200px;
   line-height: 1.6;
+}
+
+.replies-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.replies-section h4 {
+  margin-bottom: 15px;
+  color: #303133;
+  font-size: 16px;
+}
+
+.reply-item {
+  background-color: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.reply-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #909399;
+}
+
+.reply-author {
+  color: #606266;
+  font-weight: bold;
+}
+
+.reply-time {
+  color: #909399;
+}
+
+.reply-content {
+  line-height: 1.5;
+  color: #606266;
+}
+
+.no-replies {
+  text-align: center;
+  color: #909399;
+  font-size: 14px;
+  padding: 20px 0;
+}
+
+.reply-input-section {
+  margin-top: 20px;
+}
+
+.reply-input-area {
+  margin-top: 10px;
 }
 
 :deep(.w-e-toolbar) {
